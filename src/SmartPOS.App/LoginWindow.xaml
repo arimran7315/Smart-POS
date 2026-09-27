@@ -1,0 +1,12 @@
+<Window x:Class="SmartPOS.App.LoginWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="SmartPOS | Sign in" Height="560" Width="460" WindowStartupLocation="CenterScreen" ResizeMode="NoResize" Background="#F3F6F8">
+  <Border Background="White" CornerRadius="14" Padding="30" Margin="30"><StackPanel VerticalAlignment="Center">
+    <TextBlock Text="{DynamicResource AppName}" FontSize="32" FontWeight="Bold" Foreground="#176B87" HorizontalAlignment="Center"/>
+    <TextBlock x:Name="ModeText" Text="Sign in to continue" Margin="0,4,0,18" Foreground="#687789" HorizontalAlignment="Center"/>
+    <TextBlock Text="Username"/><TextBox x:Name="UsernameBox"/>
+    <TextBlock x:Name="DisplayNameLabel" Text="Display name" Visibility="Collapsed"/><TextBox x:Name="DisplayNameBox" Visibility="Collapsed"/>
+    <TextBlock Text="Password"/><PasswordBox x:Name="PasswordBox" Padding="10" Margin="4" FontSize="14"/>
+    <TextBlock x:Name="ConfirmLabel" Text="Confirm password" Visibility="Collapsed"/><PasswordBox x:Name="ConfirmBox" Padding="10" Margin="4" FontSize="14" Visibility="Collapsed"/>
+    <Button x:Name="SubmitButton" Content="Sign in" Background="#176B87" Foreground="White" Click="Submit_Click" Margin="4,16,4,4"/>
+    <TextBlock x:Name="HintText" TextWrapping="Wrap" Foreground="#687789" Margin="6,8"/>
+  </StackPanel></Border>
+</Window>

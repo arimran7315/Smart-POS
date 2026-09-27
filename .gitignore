@@ -1,0 +1,33 @@
+# Build output
+**/bin/
+**/obj/
+.dotnet/
+dotnet-install.ps1
+.vs/
+.idea/
+*.user
+*.suo
+*.cache
+
+# Local data and logs
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.bak
+*.backup
+*.log
+logs/
+
+# Local configuration and secrets
+appsettings.Local.json
+appsettings.*.Local.json
+secrets.json
+.env
+.env.*
+!.env.example
+
+# OS/editor
+Thumbs.db
+.DS_Store
