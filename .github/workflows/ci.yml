@@ -1,0 +1,52 @@
+name: Windows CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Install .NET 10 SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore .\SmartPOS.sln
+
+      - name: Build Release
+        run: dotnet build .\SmartPOS.sln -c Release --no-restore
+
+      - name: Test Release
+        run: dotnet test .\SmartPOS.sln -c Release --no-build --no-restore --logger "console;verbosity=minimal"
+
+      - name: Publish self-contained x64 app
+        run: >-
+          dotnet publish .\src\SmartPOS.App\SmartPOS.App.csproj -c Release -r win-x64
+          --self-contained true -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -o .\artifacts\SmartPOS-win-x64
+
+      - name: Build per-user setup executable
+        shell: pwsh
+        run: .\packaging\SmartPOS\Build-Installer.ps1
+
+      - name: Verify release executables
+        shell: pwsh
+        run: |
+          if (-not (Test-Path .\artifacts\SmartPOS-win-x64\SmartPOS.App.exe -PathType Leaf)) { throw 'Published app executable is missing.' }
+          if (-not (Test-Path .\artifacts\SmartPOS-Setup.exe -PathType Leaf)) { throw 'Setup executable is missing.' }

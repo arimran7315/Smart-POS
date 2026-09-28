@@ -1,7 +1,8 @@
 using System.Windows;
+using System.Globalization;
+using SmartPOS.App.Services;
 using SmartPOS.App.ViewModels;
 using SmartPOS.Core.Entities;
-using SmartPOS.Infrastructure.Data;
 using SmartPOS.Infrastructure.Services;
 
 namespace SmartPOS.App.Views;
@@ -9,19 +10,39 @@ namespace SmartPOS.App.Views;
 public partial class SalesHistoryWindow : Window
 {
     private readonly SalesHistoryViewModel _viewModel;
-    public SalesHistoryWindow(SaleService sales, PosDbContext db, AppUser user)
+    private readonly ReceiptPrinter _receiptPrinter;
+    public SalesHistoryWindow(SaleService sales, ReturnsService returns, AppUser user, ReceiptPrinter receiptPrinter)
     {
-        InitializeComponent(); Title = $"{Convert.ToString(TryFindResource("AppName")) ?? "SmartPOS"} | Sales and returns";
-        ReturnButton.IsEnabled = SmartPOS.Core.Services.Permissions.Has(user.Role, "Sales.Return");
-        _viewModel = new SalesHistoryViewModel(sales, new ReturnsService(db), user); DataContext = _viewModel;
+        InitializeComponent(); Title = $"{SmartPosIdentity.Name} | Sales and returns";
+        _receiptPrinter = receiptPrinter;
+        _viewModel = new SalesHistoryViewModel(sales, returns, user, new WpfUserConfirmationService(this)); DataContext = _viewModel;
         Loaded += async (_, _) => await _viewModel.InitializeAsync();
     }
-    private void Return_Click(object sender, RoutedEventArgs e)
+    private async void Reprint_Click(object sender, RoutedEventArgs e)
     {
-        if (!_viewModel.ReturnCommand.CanExecute(null)) return;
-        var sale = _viewModel.SelectedSale!; var item = _viewModel.SelectedItem!;
-        if (MessageBox.Show($"Process a return for {item.ProductName} on invoice {sale.InvoiceNumber}? Stock and customer balance/refund will be updated.",
-            "Confirm return", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
-            _viewModel.ReturnCommand.Execute(null);
+        var sale = _viewModel.SelectedSale;
+        if (sale is null) { _viewModel.ReportStatus("Select a sale before reprinting its receipt."); return; }
+        if (sale.Status == "Voided") { _viewModel.ReportStatus("A voided sale receipt cannot be reprinted."); return; }
+        try
+        {
+            var receipt = await _viewModel.GetReceiptForReprintAsync(sale.Id);
+            if (receipt is null) return;
+            var settings = receipt.Settings;
+            var width = double.TryParse(settings.GetValueOrDefault("ReceiptWidthMm"), NumberStyles.Number,
+                CultureInfo.InvariantCulture, out var mm) ? mm : 80;
+            var printed = _receiptPrinter.Print(this, receipt.Sale, settings.GetValueOrDefault("StoreName") ?? SmartPosIdentity.Name,
+                settings.GetValueOrDefault("StoreAddress"), settings.GetValueOrDefault("StorePhone"), receipt.CashierName,
+                settings.GetValueOrDefault("Currency") ?? "", width, receipt.CustomerName, settings.GetValueOrDefault("TaxNumber"),
+                settings.GetValueOrDefault("DefaultPrinter"), settings.GetValueOrDefault("ReceiptPrintMode"), settings.GetValueOrDefault("StoreEmail"));
+            if (printed)
+            {
+                if (await _viewModel.RecordReceiptReprintedAsync(sale.Id))
+                    _viewModel.ReportStatus($"Receipt reprinted for {receipt.Sale.InvoiceNumber}.");
+                else
+                    MessageBox.Show("The receipt was sent to the printer, but its activity entry could not be saved. Do not reprint because of this message; check the status for details.",
+                        "Receipt sent; activity log failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+        catch (Exception ex) { _viewModel.ReportStatus(UserErrorHandler.GetMessage(ex, "Reprinting the receipt")); }
     }
 }

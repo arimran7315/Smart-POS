@@ -19,6 +19,9 @@ dotnet-install.ps1
 *.backup
 *.log
 logs/
+TestResults/
+artifacts/
+publish/
 
 # Local configuration and secrets
 appsettings.Local.json
@@ -27,6 +30,11 @@ secrets.json
 .env
 .env.*
 !.env.example
+*.pfx
+*.p12
+*.pem
+*.key
+*.publishsettings
 
 # OS/editor
 Thumbs.db

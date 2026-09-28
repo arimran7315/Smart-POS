@@ -4,10 +4,12 @@
     <UseWPF>true</UseWPF>
     <TargetFramework>net10.0-windows</TargetFramework>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ApplicationIcon>SmartPOS.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\SmartPOS.Core\SmartPOS.Core.csproj" />
     <ProjectReference Include="..\SmartPOS.Infrastructure\SmartPOS.Infrastructure.csproj" />
+    <ProjectReference Include="..\SmartPOS.SqlServerMigrations\SmartPOS.SqlServerMigrations.csproj" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.12" />
@@ -15,5 +17,9 @@
     <PackageReference Include="Serilog.Extensions.Hosting" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
   </ItemGroup>
-  <ItemGroup><None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup>
+    <Resource Include="SmartPOS.ico" />
+    <Resource Include="Assets\**\*" />
+    <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

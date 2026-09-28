@@ -1,130 +1,100 @@
-using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using Microsoft.EntityFrameworkCore;
 using SmartPOS.Core.Entities;
 using SmartPOS.Core.Services;
 using SmartPOS.App.Views;
 using SmartPOS.App.Services;
-using SmartPOS.Infrastructure.Data;
+using SmartPOS.App.ViewModels;
 using SmartPOS.Infrastructure.Services;
 
 namespace SmartPOS.App;
 
 public partial class PosWindow : Window
 {
-    private readonly SaleService _sales; private readonly ProductService _products; private readonly PosDbContext _db; private readonly AppUser _user;
-    private readonly ReceiptPrinter _receiptPrinter = new();
-    private Sale? _lastSale;
+    private readonly SaleService _sales;
+    private readonly ProductService _products;
+    private readonly InventoryService _inventory;
+    private readonly CatalogTaxonomyService _taxonomy;
+    private readonly AppUser _user;
+    private readonly ReceiptPrinter _receiptPrinter;
+    private readonly PosViewModel _viewModel;
     private bool _ready;
-    private readonly ObservableCollection<CartLine> _cart = [];
-    public PosWindow(SaleService sales, ProductService products, PosDbContext db, AppUser user)
+
+    public PosWindow(SaleService sales, HeldSaleService heldSales, ProductService products, InventoryService inventory,
+        CatalogTaxonomyService taxonomy, PosScreenService screen, AppUser user, ReceiptPrinter receiptPrinter)
     {
-        InitializeComponent(); _sales = sales; _products = products; _db = db; _user = user; CartGrid.ItemsSource = _cart;
+        InitializeComponent();
+        Title = $"{SmartPosIdentity.Name} | Point of Sale";
+        _sales = sales; _products = products; _inventory = inventory; _taxonomy = taxonomy; _user = user;
+        _receiptPrinter = receiptPrinter;
+        _viewModel = new PosViewModel(products, heldSales, sales, screen, user, new WpfUserConfirmationService(this));
+        DataContext = _viewModel;
+        var canApplyDiscount = Permissions.Has(user.Role, "Sales.Discount");
+        DiscountColumn.IsReadOnly = !canApplyDiscount; BillDiscountBox.IsReadOnly = !canApplyDiscount;
         _ready = true;
-        CashierInfo.Text = $"{user.DisplayName} · {user.Role}"; StoreInfo.Text = Convert.ToString(TryFindResource("AppName")) ?? "SmartPOS"; UpdateTotals();
-        Loaded += async (_, _) =>
-        {
-            var settings = await _db.Settings.AsNoTracking().ToDictionaryAsync(x => x.Key, x => x.Value);
-            if (!string.IsNullOrWhiteSpace(settings.GetValueOrDefault("StoreName"))) StoreInfo.Text = settings["StoreName"];
-            CustomerBox.Items.Clear(); CustomerBox.Items.Add(new ComboBoxItem { Content = "Walk-in", Tag = "" });
-            foreach (var customer in await _db.Customers.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Name).ToListAsync())
-                CustomerBox.Items.Add(new ComboBoxItem { Content = customer.Name, Tag = customer.Id.ToString(CultureInfo.InvariantCulture) });
-            CustomerBox.SelectedIndex = 0;
-        };
+        Loaded += async (_, _) => await _viewModel.InitializeAsync(SmartPosIdentity.Name);
     }
+
     private void Products_Click(object sender, RoutedEventArgs e)
     {
-        if (!Permissions.Has(_user.Role, "Products.Manage")) { MessageBox.Show("Your role cannot manage products.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
-        new ProductsWindow(_products, new InventoryService(_db), new CatalogTaxonomyService(_db), _db, _user) { Owner = this }.ShowDialog();
-    }
-    private async void Add_Click(object sender, RoutedEventArgs e) => await AddProductAsync();
-    private async void SearchBox_KeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Enter) { e.Handled = true; await AddProductAsync(); } }
-    private async Task AddProductAsync()
-    {
-        var key = SearchBox.Text.Trim(); if (key.Length == 0) return;
-        var matches = await _db.Products.Where(p => p.IsActive && (p.Barcode == key || p.Sku == key || p.Name.Contains(key))).OrderBy(p => p.Name).Take(2).ToListAsync();
-        if (matches.Count == 0) { SearchMessage.Text = "No active product matches that barcode, SKU, or name."; return; }
-        Product? product = matches.Count == 1 ? matches[0] : await ChooseProductAsync(matches);
-        if (product is null) return;
-        if (product.CurrentStock <= 0) { SearchMessage.Text = $"{product.Name} is out of stock."; return; }
-        var existing = _cart.FirstOrDefault(x => x.ProductId == product.Id);
-        if (existing is not null) { if (existing.Quantity + 1 > product.CurrentStock) { SearchMessage.Text = $"Only {product.CurrentStock} in stock."; return; } existing.Quantity++; }
-        else _cart.Add(new CartLine(product.Id, product.Name, 1, product.SalePrice, product.PurchasePrice, product.TaxRate, product.DiscountRate, product.CurrentStock));
-        SearchMessage.Text = ""; SearchBox.Clear(); UpdateTotals(); SearchBox.Focus();
-    }
-    private async Task<Product?> ChooseProductAsync(List<Product> products)
-    {
-        var picker = new Window { Title = "Choose product", Width = 520, Height = 340, Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner };
-        var list = new ListBox { ItemsSource = products, DisplayMemberPath = "Name", Margin = new Thickness(10) }; list.MouseDoubleClick += (_, _) => picker.DialogResult = true; picker.Content = list;
-        return picker.ShowDialog() == true ? list.SelectedItem as Product : null;
-    }
-    private void Remove_Click(object sender, RoutedEventArgs e) { if (CartGrid.SelectedItem is CartLine line) _cart.Remove(line); UpdateTotals(); }
-    private void PaidBox_TextChanged(object sender, TextChangedEventArgs e) { if (_ready) UpdateTotals(); }
-    private void PaymentBox_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (_ready) UpdateTotals(); }
-    private void Clear_Click(object sender, RoutedEventArgs e) { _cart.Clear(); UpdateTotals(); SearchMessage.Text = "Cart cleared."; }
-    private async void Complete_Click(object sender, RoutedEventArgs e)
-    {
-        if (_cart.Count == 0) { SearchMessage.Text = "Add a product before completing the sale."; return; }
-        if (!decimal.TryParse(PaidBox.Text, NumberStyles.Number, CultureInfo.CurrentCulture, out var paid) || paid < 0) { MessageBox.Show("Enter a valid non-negative amount received."); return; }
-        var method = ((ComboBoxItem)PaymentBox.SelectedItem).Content.ToString()!;
-        var customerTag = (CustomerBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
-        int? customerId = int.TryParse(customerTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedCustomerId) ? parsedCustomerId : null;
-        if (method == "Credit" && customerId is null) { MessageBox.Show("Select a customer to make a credit sale."); return; }
-        var totals = SaleCalculator.Calculate(_cart.Select(x => new SaleLine(x.Quantity, x.UnitPrice, x.UnitCost, x.DiscountRate, x.TaxRate)));
-        if (method != "Credit" && paid < totals.GrandTotal) { MessageBox.Show("Amount received is less than the sale total."); return; }
-        if (method == "Credit" && !Permissions.Has(_user.Role, "Sales.Credit")) { MessageBox.Show("Your role cannot create credit sales."); return; }
-        if (MessageBox.Show($"Complete sale for {totals.GrandTotal:N2}?", "Confirm sale", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-        try
+        if (!Permissions.Has(_user.Role, "Products.Manage"))
         {
-            var sale = await _sales.CompleteAsync(_cart.Select(x => (x.ProductId, x.Quantity)).ToArray(), _user.Id, customerId, 0, paid, method, null);
-            _lastSale = sale; PrintButton.IsEnabled = true;
-            MessageBox.Show($"Sale {sale.InvoiceNumber} saved. Change: {SaleCalculator.Change(paid, sale.GrandTotal):N2}", "Sale complete", MessageBoxButton.OK, MessageBoxImage.Information);
-            _cart.Clear(); PaidBox.Text = "0"; UpdateTotals(); SearchBox.Focus();
+            MessageBox.Show("Your role cannot manage products.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
         }
-        catch (Exception ex) { MessageBox.Show(ex.Message, "Sale failed", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        new ProductsWindow(_products, _inventory, _taxonomy, _user) { Owner = this }.ShowDialog();
     }
+
+    private async void SearchBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter) { e.Handled = true; await _viewModel.SearchProductsCommand.ExecuteAsync(); }
+    }
+
+    private void PaymentBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_ready) return;
+        var mixed = PaymentBox.SelectedItem?.ToString() == "Mixed";
+        MixedTenderPanel.Visibility = mixed ? Visibility.Visible : Visibility.Collapsed;
+        PaidLabel.Visibility = PaidBox.Visibility = mixed ? Visibility.Collapsed : Visibility.Visible;
+    }
+
     private async void Print_Click(object sender, RoutedEventArgs e)
     {
-        if (_lastSale is null) return;
-        var settings = await _db.Settings.AsNoTracking().ToDictionaryAsync(x => x.Key, x => x.Value);
-        var paperWidth = double.TryParse(settings.GetValueOrDefault("ReceiptWidthMm"), out var mm) ? mm : 80;
+        if (_viewModel.LastSale is null) return;
         try
         {
-            if (_receiptPrinter.Print(this, _lastSale, StoreInfo.Text, settings.GetValueOrDefault("StoreAddress"), settings.GetValueOrDefault("StorePhone"), _user.DisplayName,
-                settings.GetValueOrDefault("Currency") ?? "", paperWidth))
+            var receipt = await _sales.GetReceiptForReprintAsync(_viewModel.LastSale.Id, _user.Id);
+            var settings = receipt.Settings;
+            var paperWidth = double.TryParse(settings.GetValueOrDefault("ReceiptWidthMm"), NumberStyles.Number, CultureInfo.InvariantCulture, out var mm) ? mm : 80;
+            var storeName = settings.GetValueOrDefault("StoreName") ?? SmartPosIdentity.Name;
+            if (_receiptPrinter.Print(this, receipt.Sale, storeName, settings.GetValueOrDefault("StoreAddress"), settings.GetValueOrDefault("StorePhone"), receipt.CashierName,
+                settings.GetValueOrDefault("Currency") ?? "", paperWidth, receipt.CustomerName, settings.GetValueOrDefault("TaxNumber"), settings.GetValueOrDefault("DefaultPrinter"), settings.GetValueOrDefault("ReceiptPrintMode"), settings.GetValueOrDefault("StoreEmail")))
             {
-                _db.AuditEntries.Add(new AuditEntry { UserId = _user.Id, Action = "Print", EntityName = "Sale", EntityId = _lastSale.InvoiceNumber, Description = $"Printed receipt for {_lastSale.InvoiceNumber}." });
-                await _db.SaveChangesAsync();
+                try { await _sales.RecordReceiptPrintedAsync(_viewModel.LastSale.Id, _user.Id); }
+                catch (Exception ex)
+                {
+                    var detail = UserErrorHandler.GetMessage(ex, "Recording the receipt print");
+                    MessageBox.Show($"The receipt was sent to the printer, but its activity entry could not be saved. Do not print again just because of this message. {detail}",
+                        "Receipt sent; activity log failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
             }
         }
-        catch (Exception ex) { MessageBox.Show(ex.Message, "Receipt printing failed", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch (Exception ex) { MessageBox.Show(UserErrorHandler.GetMessage(ex, "Printing the receipt"), "Receipt printing failed", MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
-    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+
+    private async void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.F1) { SearchBox.Focus(); e.Handled = true; }
-        else if (e.Key == Key.F4) { Complete_Click(this, new RoutedEventArgs()); e.Handled = true; }
-        else if (e.Key == Key.F5) { Clear_Click(this, new RoutedEventArgs()); e.Handled = true; }
-        else if (e.Key == Key.Delete && CartGrid.SelectedItem is not null) { Remove_Click(this, new RoutedEventArgs()); e.Handled = true; }
-    }
-    private void UpdateTotals()
-    {
-        var t = SaleCalculator.Calculate(_cart.Select(x => new SaleLine(x.Quantity, x.UnitPrice, x.UnitCost, x.DiscountRate, x.TaxRate)));
-        SubtotalText.Text = t.Subtotal.ToString("N2"); TaxText.Text = t.Tax.ToString("N2"); TotalText.Text = t.GrandTotal.ToString("N2");
-        var paid = decimal.TryParse(PaidBox?.Text, out var p) ? p : 0;
-        var method = (PaymentBox?.SelectedItem as ComboBoxItem)?.Content?.ToString();
-        ChangeText.Text = $"Change: {(method == "Cash" ? SaleCalculator.Change(paid, t.GrandTotal) : 0):N2}";
-    }
-    private sealed class CartLine(int productId, string productName, decimal quantity, decimal unitPrice, decimal unitCost, decimal taxRate, decimal discountRate, decimal available) : INotifyPropertyChanged
-    {
-        public event PropertyChangedEventHandler? PropertyChanged;
-        public int ProductId { get; } = productId; public string ProductName { get; } = productName;
-        private decimal _quantity = quantity;
-        public decimal Quantity { get => _quantity; set { if (_quantity == value) return; _quantity = value; PropertyChanged?.Invoke(this, new(nameof(Quantity))); PropertyChanged?.Invoke(this, new(nameof(LineTotal))); } }
-        public decimal UnitPrice { get; } = unitPrice; public decimal UnitCost { get; } = unitCost; public decimal TaxRate { get; } = taxRate;
-        public decimal DiscountRate { get; } = discountRate; public decimal Available { get; } = available; public decimal LineTotal => Quantity * UnitPrice * (1 - DiscountRate / 100m) * (1 + TaxRate / 100m);
+        switch (e.Key)
+        {
+            case Key.F1: SearchBox.Focus(); e.Handled = true; break;
+            case Key.F2: SearchBox.Focus(); SearchBox.SelectAll(); e.Handled = true; break;
+            case Key.F3: await _viewModel.HoldSaleCommand.ExecuteAsync(); e.Handled = true; break;
+            case Key.F4: PaymentBox.Focus(); PaymentBox.IsDropDownOpen = true; e.Handled = true; break;
+            case Key.F5: await _viewModel.NewSaleCommand.ExecuteAsync(); e.Handled = true; break;
+            case Key.F8 when _viewModel.LastSale is not null: Print_Click(this, new RoutedEventArgs()); e.Handled = true; break;
+            case Key.Delete when _viewModel.SelectedCartLine is not null: await _viewModel.RemoveProductCommand.ExecuteAsync(); e.Handled = true; break;
+        }
     }
 }

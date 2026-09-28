@@ -58,8 +58,14 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("FailedLoginAttempts")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("LockoutUntilUtc")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -181,6 +187,9 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Address")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
@@ -197,6 +206,9 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<long>("OpeningBalance")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Phone")
                         .HasColumnType("TEXT");
 
@@ -206,6 +218,46 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
                     b.HasKey("Id");
 
                     b.ToTable("Customers");
+                });
+
+            modelBuilder.Entity("SmartPOS.Core.Entities.CustomerAccountPayment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Amount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("PaidAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reference")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("CustomerAccountPayments");
                 });
 
             modelBuilder.Entity("SmartPOS.Core.Entities.Expense", b =>
@@ -228,6 +280,13 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("SpentAtUtc")
                         .HasColumnType("TEXT");
 
@@ -242,6 +301,46 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
                     b.HasIndex("UserId");
 
                     b.ToTable("Expenses");
+                });
+
+            modelBuilder.Entity("SmartPOS.Core.Entities.HeldSale", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("BillDiscount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("CustomerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("HeldAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ItemsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("HeldSales");
                 });
 
             modelBuilder.Entity("SmartPOS.Core.Entities.Payment", b =>
@@ -320,6 +419,7 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
 
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
                     b.Property<long>("PurchasePrice")
@@ -331,6 +431,10 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
                     b.Property<string>("Sku")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("StockVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
 
                     b.Property<long>("TaxRate")
                         .HasColumnType("INTEGER");
@@ -355,6 +459,8 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
 
                     b.HasIndex("CategoryId");
 
+                    b.HasIndex("Name");
+
                     b.HasIndex("Sku")
                         .IsUnique();
 
@@ -370,18 +476,34 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<long>("Discount")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("PaidAmount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PaymentStatus")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("PurchasedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<long>("RemainingAmount")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<int>("SupplierId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Tax")
                         .HasColumnType("INTEGER");
 
                     b.Property<long>("Total")
@@ -397,6 +519,8 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
 
                     b.HasIndex("InvoiceNumber")
                         .IsUnique();
+
+                    b.HasIndex("PurchasedAtUtc");
 
                     b.HasIndex("SupplierId");
 
@@ -414,6 +538,9 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<long>("Discount")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("ProductId")
                         .HasColumnType("INTEGER");
 
@@ -421,6 +548,9 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
                         .HasColumnType("INTEGER");
 
                     b.Property<long>("Quantity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Tax")
                         .HasColumnType("INTEGER");
 
                     b.Property<long>("Total")
@@ -586,6 +716,8 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
 
                     b.HasIndex("InvoiceNumber")
                         .IsUnique();
+
+                    b.HasIndex("SoldAtUtc");
 
                     b.HasIndex("UserId");
 
@@ -772,6 +904,9 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
                     b.Property<string>("Address")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Company")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
@@ -785,6 +920,9 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<long>("OpeningBalance")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Phone")
                         .HasColumnType("TEXT");
 
@@ -796,6 +934,51 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
                     b.ToTable("Suppliers");
                 });
 
+            modelBuilder.Entity("SmartPOS.Core.Entities.SupplierPayment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Amount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("PaidAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("PurchaseId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Reference")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SupplierId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PurchaseId");
+
+                    b.HasIndex("SupplierId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("SupplierPayments");
+                });
+
             modelBuilder.Entity("SmartPOS.Core.Entities.AuditEntry", b =>
                 {
                     b.HasOne("SmartPOS.Core.Entities.AppUser", null)
@@ -804,8 +987,37 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
                         .OnDelete(DeleteBehavior.SetNull);
                 });
 
+            modelBuilder.Entity("SmartPOS.Core.Entities.CustomerAccountPayment", b =>
+                {
+                    b.HasOne("SmartPOS.Core.Entities.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SmartPOS.Core.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SmartPOS.Core.Entities.Expense", b =>
                 {
+                    b.HasOne("SmartPOS.Core.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SmartPOS.Core.Entities.HeldSale", b =>
+                {
+                    b.HasOne("SmartPOS.Core.Entities.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("SmartPOS.Core.Entities.AppUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -975,6 +1187,26 @@ namespace SmartPOS.Infrastructure.Data.Migrations.Sqlite
                     b.HasOne("SmartPOS.Core.Entities.Product", null)
                         .WithMany()
                         .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SmartPOS.Core.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SmartPOS.Core.Entities.SupplierPayment", b =>
+                {
+                    b.HasOne("SmartPOS.Core.Entities.Purchase", null)
+                        .WithMany()
+                        .HasForeignKey("PurchaseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SmartPOS.Core.Entities.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
