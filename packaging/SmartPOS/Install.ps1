@@ -1,7 +1,6 @@
 param(
     [string]$InstallDirectory = (Join-Path $env:LOCALAPPDATA 'Programs\SmartPOS'),
     [string]$StartMenuDirectory = (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\SmartPOS'),
-    [string]$DesktopShortcutPath = (Join-Path ([Environment]::GetFolderPath('Desktop')) 'SmartPOS.lnk'),
     [string]$UninstallRegistryKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SmartPOS',
     [switch]$SkipLaunch,
     [switch]$Silent
@@ -11,6 +10,9 @@ $ErrorActionPreference = 'Stop'
 $sourceDirectory = $PSScriptRoot
 $applicationFile = 'SmartPOS.App.exe'
 $iconFile = 'SmartPOS.ico'
+
+# Pre-load presentation framework
+Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase -ErrorAction SilentlyContinue
 
 if (Get-Process -Name 'SmartPOS.App' -ErrorAction SilentlyContinue) {
     if ($Silent) {
@@ -27,16 +29,14 @@ foreach ($requiredFile in @($applicationFile, 'appsettings.json', 'Uninstall.ps1
     }
 }
 
-function Perform-InstallAction([scriptblock]$statusCallback) {
-    & $statusCallback 10 "Checking system requirements..."
-    Start-Sleep -Milliseconds 250
-
-    & $statusCallback 25 "Creating installation directories..."
+function Execute-Step1 {
+    # Step 1: Create directories
     New-Item -ItemType Directory -Path $InstallDirectory -Force | Out-Null
     New-Item -ItemType Directory -Path $StartMenuDirectory -Force | Out-Null
-    Start-Sleep -Milliseconds 250
+}
 
-    & $statusCallback 45 "Copying SmartPOS application files..."
+function Execute-Step2 {
+    # Step 2: Copy files
     Copy-Item -LiteralPath (Join-Path $sourceDirectory $applicationFile) -Destination $InstallDirectory -Force
     Copy-Item -LiteralPath (Join-Path $sourceDirectory 'appsettings.json') -Destination $InstallDirectory -Force
     Copy-Item -LiteralPath (Join-Path $sourceDirectory 'Uninstall.ps1') -Destination $InstallDirectory -Force
@@ -44,9 +44,10 @@ function Perform-InstallAction([scriptblock]$statusCallback) {
     if (Test-Path -LiteralPath (Join-Path $sourceDirectory $iconFile) -PathType Leaf) {
         Copy-Item -LiteralPath (Join-Path $sourceDirectory $iconFile) -Destination $InstallDirectory -Force
     }
-    Start-Sleep -Milliseconds 300
+}
 
-    & $statusCallback 70 "Creating Desktop and Start Menu shortcuts..."
+function Execute-Step3 {
+    # Step 3: Create shortcuts on Desktop (all active desktop paths) and Start Menu
     $installedAppPath = Join-Path $InstallDirectory $applicationFile
     $installedIconPath = Join-Path $InstallDirectory $iconFile
     $targetIcon = if (Test-Path -LiteralPath $installedIconPath -PathType Leaf) { $installedIconPath } else { $installedAppPath }
@@ -61,16 +62,30 @@ function Perform-InstallAction([scriptblock]$statusCallback) {
     $startShortcut.Description = 'SmartPOS offline point-of-sale system'
     $startShortcut.Save()
 
-    # Desktop shortcut
-    $desktopShortcut = $shell.CreateShortcut($DesktopShortcutPath)
-    $desktopShortcut.TargetPath = $installedAppPath
-    $desktopShortcut.WorkingDirectory = $InstallDirectory
-    $desktopShortcut.IconLocation = "$targetIcon,0"
-    $desktopShortcut.Description = 'SmartPOS Point of Sale'
-    $desktopShortcut.Save()
-    Start-Sleep -Milliseconds 250
+    # Desktop shortcuts (Handle User Desktop, Shell Desktop, and OneDrive Desktop)
+    $desktopLocations = @(
+        $shell.SpecialFolders.Item('Desktop'),
+        [Environment]::GetFolderPath('Desktop'),
+        (Join-Path $env:USERPROFILE 'Desktop'),
+        (Join-Path $env:USERPROFILE 'OneDrive\Desktop')
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and (Test-Path -LiteralPath $_ -PathType Container) } | Select-Object -Unique
 
-    & $statusCallback 85 "Configuring application registry..."
+    foreach ($dt in $desktopLocations) {
+        $desktopShortcut = $shell.CreateShortcut((Join-Path $dt 'SmartPOS.lnk'))
+        $desktopShortcut.TargetPath = $installedAppPath
+        $desktopShortcut.WorkingDirectory = $InstallDirectory
+        $desktopShortcut.IconLocation = "$targetIcon,0"
+        $desktopShortcut.Description = 'SmartPOS Point of Sale'
+        $desktopShortcut.Save()
+    }
+}
+
+function Execute-Step4 {
+    # Step 4: Configure Registry
+    $installedAppPath = Join-Path $InstallDirectory $applicationFile
+    $installedIconPath = Join-Path $InstallDirectory $iconFile
+    $targetIcon = if (Test-Path -LiteralPath $installedIconPath -PathType Leaf) { $installedIconPath } else { $installedAppPath }
+
     $uninstallCommand = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{0}"' -f (Join-Path $InstallDirectory 'Uninstall.ps1')
     New-Item -Path $UninstallRegistryKey -Force | Out-Null
     Set-ItemProperty -Path $UninstallRegistryKey -Name DisplayName -Value 'SmartPOS - Point of Sale'
@@ -81,27 +96,24 @@ function Perform-InstallAction([scriptblock]$statusCallback) {
     Set-ItemProperty -Path $UninstallRegistryKey -Name UninstallString -Value $uninstallCommand
     Set-ItemProperty -Path $UninstallRegistryKey -Name NoModify -Value 1 -Type DWord
     Set-ItemProperty -Path $UninstallRegistryKey -Name NoRepair -Value 1 -Type DWord
-    Start-Sleep -Milliseconds 250
-
-    & $statusCallback 100 "Installation completed successfully!"
-    Start-Sleep -Milliseconds 300
 }
 
 if ($Silent) {
-    Perform-InstallAction -statusCallback { param($p, $msg) Write-Host "$p% - $msg" }
+    Execute-Step1
+    Execute-Step2
+    Execute-Step3
+    Execute-Step4
     if (-not $SkipLaunch) {
         Start-Process -FilePath (Join-Path $InstallDirectory $applicationFile) -WorkingDirectory $InstallDirectory
     }
     exit 0
 }
 
-# Load WPF for GUI Installer
-Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
-
+# WPF GUI Setup Window
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="SmartPOS Setup" Height="420" Width="560"
+        Title="SmartPOS Setup" Height="430" Width="560"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         Background="#0F172A" WindowStyle="SingleBorderWindow"
         FontFamily="Segoe UI">
@@ -137,7 +149,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
         <!-- Body / Progress Area -->
         <Border Grid.Row="1" Background="#1E293B" CornerRadius="12" Padding="20" BorderBrush="#334155" BorderThickness="1">
             <StackPanel VerticalAlignment="Center">
-                <TextBlock x:Name="StatusLabel" Text="Initializing installation..." FontSize="14" FontWeight="SemiBold" Foreground="#E2E8F0" Margin="0,0,0,10"/>
+                <TextBlock x:Name="StatusLabel" Text="Preparing installation..." FontSize="14" FontWeight="SemiBold" Foreground="#E2E8F0" Margin="0,0,0,12"/>
                 
                 <!-- Modern Progress Bar -->
                 <Grid Height="24" Margin="0,0,0,10">
@@ -147,11 +159,11 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
                 </Grid>
 
                 <DockPanel Margin="0,0,0,12">
-                    <TextBlock x:Name="DetailLabel" Text="Preparing..." FontSize="12" Foreground="#94A3B8" DockPanel.Dock="Left"/>
+                    <TextBlock x:Name="DetailLabel" Text="Checking system requirements..." FontSize="12" Foreground="#94A3B8" DockPanel.Dock="Left"/>
                     <TextBlock x:Name="PercentLabel" Text="0%" FontSize="12" FontWeight="Bold" Foreground="#38BDF8" DockPanel.Dock="Right"/>
                 </DockPanel>
 
-                <CheckBox x:Name="LaunchCheckBox" Content="Launch SmartPOS after installation" IsChecked="True" Foreground="#CBD5E1" Margin="0,8,0,0" FontSize="13" Visibility="Collapsed"/>
+                <CheckBox x:Name="LaunchCheckBox" Content="Launch SmartPOS now" IsChecked="True" Foreground="#CBD5E1" Margin="0,8,0,0" FontSize="13" Visibility="Hidden"/>
             </StackPanel>
         </Border>
 
@@ -160,7 +172,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
             <TextBlock Text="SmartPOS v1.0.0" FontSize="12" Foreground="#64748B" VerticalAlignment="Center"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button x:Name="FinishButton" Content="Finish" Width="100" Height="36" Background="#0EA5E9" Foreground="White" FontWeight="SemiBold"
-                        BorderThickness="0" Cursor="Hand" Visibility="Collapsed"/>
+                        BorderThickness="0" Cursor="Hand" Visibility="Hidden"/>
             </StackPanel>
         </DockPanel>
     </Grid>
@@ -184,34 +196,53 @@ $finishButton.Add_Click({
     $window.Close()
 })
 
-$window.Add_ContentRendered({
-    $worker = [System.ComponentModel.BackgroundWorker]::new()
-    $worker.WorkerReportsProgress = $true
-    
-    $worker.DoWork += {
-        param($s, $e)
-        Perform-InstallAction -statusCallback {
-            param($percent, $msg)
-            $s.ReportProgress($percent, $msg)
-        }
-    }
+$script:currentStep = 0
+$dispatcherTimer = New-Object System.Windows.Threading.DispatcherTimer
+$dispatcherTimer.Interval = [TimeSpan]::FromMilliseconds(350)
 
-    $worker.ProgressChanged += {
-        param($s, $e)
-        $progressBar.Value = $e.ProgressPercentage
-        $percentLabel.Text = "$($e.ProgressPercentage)%"
-        $detailLabel.Text = $e.UserState
-        if ($e.ProgressPercentage -lt 100) {
+$dispatcherTimer.Add_Tick({
+    $script:currentStep++
+    switch ($script:currentStep) {
+        1 {
+            $progressBar.Value = 20
+            $percentLabel.Text = "20%"
             $statusLabel.Text = "Installing SmartPOS..."
-        } else {
+            $detailLabel.Text = "Creating installation directories..."
+            Execute-Step1
+        }
+        2 {
+            $progressBar.Value = 50
+            $percentLabel.Text = "50%"
+            $detailLabel.Text = "Copying SmartPOS application files..."
+            Execute-Step2
+        }
+        3 {
+            $progressBar.Value = 75
+            $percentLabel.Text = "75%"
+            $detailLabel.Text = "Creating Desktop and Start Menu shortcuts..."
+            Execute-Step3
+        }
+        4 {
+            $progressBar.Value = 90
+            $percentLabel.Text = "90%"
+            $detailLabel.Text = "Registering application in Windows..."
+            Execute-Step4
+        }
+        5 {
+            $progressBar.Value = 100
+            $percentLabel.Text = "100%"
             $statusLabel.Text = "Installation Complete!"
-            $statusLabel.Foreground = [System.Windows.Media.Brushes]::LimeGreen
+            $statusLabel.Foreground = [System.Windows.Media.Brushes]::MediumSeaGreen
+            $detailLabel.Text = "SmartPOS has been installed successfully."
             $launchCheckBox.Visibility = [System.Windows.Visibility]::Visible
             $finishButton.Visibility = [System.Windows.Visibility]::Visible
+            $dispatcherTimer.Stop()
         }
     }
+})
 
-    $worker.RunWorkerAsync()
+$window.Add_Loaded({
+    $dispatcherTimer.Start()
 })
 
 $null = $window.ShowDialog()
