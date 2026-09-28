@@ -88,4 +88,15 @@ if (Test-Path -LiteralPath $outputPath -PathType Leaf) {
 $iexpress = Start-Process -FilePath $iexpressPath -ArgumentList @('/N', '/Q', $sedPath) -Wait -PassThru
 if ($iexpress.ExitCode -ne 0) { throw "IExpress failed with exit code $($iexpress.ExitCode)." }
 if (-not (Test-Path -LiteralPath $outputPath -PathType Leaf)) { throw 'IExpress did not create the setup executable.' }
+
+$iconScript = Join-Path $PSScriptRoot 'Set-ExeIcon.py'
+$iconPath = Join-Path $PSScriptRoot 'SmartPOS.ico'
+if ((Test-Path -LiteralPath $iconScript -PathType Leaf) -and (Test-Path -LiteralPath $iconPath -PathType Leaf)) {
+    try {
+        & python $iconScript $outputPath $iconPath | Out-Null
+    } catch {
+        Write-Warning "Could not update setup executable icon: $_"
+    }
+}
+
 Get-Item -LiteralPath $outputPath | Select-Object FullName, Length, LastWriteTime
