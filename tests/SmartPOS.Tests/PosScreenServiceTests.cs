@@ -22,12 +22,14 @@ public sealed class PosScreenServiceTests
         var customer = new Customer { Name = "Walk-in Customer", Email = "private@example.invalid", Phone = "private" };
         db.AddRange(cashier, observer, customer);
         db.Settings.Add(new AppSetting { Key = "StoreName", Value = "Corner Shop" });
+        db.Settings.Add(new AppSetting { Key = "Currency", Value = " PKR " });
         await db.SaveChangesAsync();
 
         var service = new PosScreenService(db);
         var setup = await service.GetSetupAsync(cashier.Id, "SmartPOS");
 
         Assert.Equal("Corner Shop", setup.StoreName);
+        Assert.Equal("PKR", setup.Currency);
         Assert.Equal(2, setup.Customers.Count);
         Assert.Null(setup.Customers[0].CustomerId);
         Assert.Equal("Walk-in", setup.Customers[0].Name);

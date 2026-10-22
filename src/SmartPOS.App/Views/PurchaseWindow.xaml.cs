@@ -10,7 +10,7 @@ public partial class PurchaseWindow : Window
 {
     public PurchaseWindow(ProductService products, SupplierService suppliers, PurchaseService purchases, PurchaseReturnsService purchaseReturns, SupplierPaymentService supplierPayments, AppUser user)
     {
-        InitializeComponent(); Title = $"{SmartPosIdentity.Name} | Receive purchase";
+        InitializeComponent(); WindowLayout.FitToWorkArea(this); Title = $"{SmartPosIdentity.Name} | Receive purchase";
         DataContext = new PurchaseViewModel(products, suppliers, purchases, purchaseReturns, supplierPayments, user, new WpfUserConfirmationService(this));
         ReceiveTab.Visibility = SmartPOS.Core.Services.Permissions.Has(user.Role, "Purchases.Manage") ? Visibility.Visible : Visibility.Collapsed;
         ReturnTab.Visibility = SmartPOS.Core.Services.Permissions.Has(user.Role, "Purchases.Return") ? Visibility.Visible : Visibility.Collapsed;

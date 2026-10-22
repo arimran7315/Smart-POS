@@ -12,6 +12,7 @@ namespace SmartPOS.App.ViewModels;
 
 public sealed class PosViewModel : INotifyPropertyChanged
 {
+    public event Action<string>? SaleCompleted;
     private readonly ProductService _products;
     private readonly HeldSaleService _heldSales;
     private readonly SaleService _sales;
@@ -19,6 +20,7 @@ public sealed class PosViewModel : INotifyPropertyChanged
     private readonly AppUser _user;
     private readonly IUserConfirmationService _confirmation;
     private string _storeName = "SmartPOS";
+    private string _currency = "";
     private int? _selectedCustomerId;
     private string _billDiscountText = "0", _paidText = "0", _mixedCashText = "0", _mixedCardText = "0", _saleNotes = "", _paymentMethod = "Cash";
     private SaleTotals _totals = SaleCalculator.Calculate([]);
@@ -35,6 +37,7 @@ public sealed class PosViewModel : INotifyPropertyChanged
     public ObservableCollection<HeldSaleSummary> HeldSales { get; } = [];
     public ObservableCollection<SaleProductLookup> ProductMatches { get; } = [];
     public string StoreName { get => _storeName; private set { _storeName = value; Changed(); } }
+    public string Currency { get => _currency; private set { _currency = value; Changed(); RefreshFormattedAmounts(); } }
     public string CashierDisplay => $"{_user.DisplayName} · {_user.Role}";
     public int? SelectedCustomerId { get => _selectedCustomerId; set { _selectedCustomerId = value; Changed(); } }
     public HeldSaleSummary? SelectedHeldSale { get => _selectedHeldSale; set { _selectedHeldSale = value; Changed(); ResumeHeldSaleCommand?.Refresh(); } }
@@ -71,11 +74,27 @@ public sealed class PosViewModel : INotifyPropertyChanged
     public string MixedCashText { get => _mixedCashText; set { if (_mixedCashText == value) return; _mixedCashText = value; Changed(); RecalculateChange(); } }
     public string MixedCardText { get => _mixedCardText; set { if (_mixedCardText == value) return; _mixedCardText = value; Changed(); RecalculateChange(); } }
     public string SaleNotes { get => _saleNotes; set { _saleNotes = value; Changed(); } }
-    public string PaymentMethod { get => _paymentMethod; set { if (_paymentMethod == value) return; _paymentMethod = value; Changed(); RecalculateChange(); } }
+    public string PaymentMethod
+    {
+        get => _paymentMethod;
+        set
+        {
+            if (_paymentMethod == value) return;
+            _paymentMethod = value;
+            Changed();
+            Changed(nameof(IsMixedPayment));
+            RecalculateChange();
+        }
+    }
+    public bool IsMixedPayment => PaymentMethod == "Mixed";
     public decimal Subtotal => _totals.Subtotal;
     public decimal DiscountTotal => _totals.Discount;
     public decimal TaxTotal => _totals.Tax;
     public decimal GrandTotal => _totals.GrandTotal;
+    public string FormattedSubtotal => FormatAmount(Subtotal);
+    public string FormattedDiscountTotal => FormatAmount(DiscountTotal);
+    public string FormattedTaxTotal => FormatAmount(TaxTotal);
+    public string FormattedGrandTotal => FormatAmount(GrandTotal);
     public string DiscountError => _discountError;
     public bool CanComplete => CartLines.Count > 0 && _isDiscountValid;
     public string ChangeSummary => _changeSummary;
@@ -127,6 +146,7 @@ public sealed class PosViewModel : INotifyPropertyChanged
         {
             var setup = await _screen.GetSetupAsync(_user.Id, defaultStoreName, ct);
             StoreName = setup.StoreName;
+            Currency = setup.Currency;
             Customers.Clear();
             foreach (var customer in setup.Customers) Customers.Add(customer);
             SelectedCustomerId = null;
@@ -217,7 +237,9 @@ public sealed class PosViewModel : INotifyPropertyChanged
         {
             var sale = await CompleteSaleAsync(checkout, SaleNotes); LastSale = sale;
             ResetCheckout(); await RefreshHeldSalesAsync();
-            ReportStatus($"Sale {sale.InvoiceNumber} saved. Change: {SaleCalculator.Change(checkout.PaidAmount, sale.GrandTotal):N2}");
+            var message = $"Sale {sale.InvoiceNumber} saved. Change: {FormatAmount(SaleCalculator.Change(checkout.PaidAmount, sale.GrandTotal))}";
+            ReportStatus(message);
+            SaleCompleted?.Invoke(message);
         }
         catch (Exception ex) { ReportStatus(UserErrorHandler.GetMessage(ex, "Completing the sale")); }
     }
@@ -296,7 +318,7 @@ public sealed class PosViewModel : INotifyPropertyChanged
         else
         {
             var line = new PosCartLine(product.ProductId, product.ProductName, 1, product.SalePrice,
-                product.TaxRate, product.DiscountRate, product.AvailableStock);
+                product.TaxRate, product.DiscountRate, product.AvailableStock, Currency);
             TrackLine(line); CartLines.Add(line);
         }
         Recalculate();
@@ -306,7 +328,7 @@ public sealed class PosViewModel : INotifyPropertyChanged
     public void AddHeldSaleItem(HeldSaleProduct item)
     {
         var line = new PosCartLine(item.ProductId, item.ProductName, item.Quantity, item.SalePrice,
-            item.TaxRate, item.DiscountRate, item.AvailableStock);
+            item.TaxRate, item.DiscountRate, item.AvailableStock, Currency);
         TrackLine(line); CartLines.Add(line);
         Recalculate();
     }
@@ -441,6 +463,7 @@ public sealed class PosViewModel : INotifyPropertyChanged
         _isDiscountValid = calculation.IsDiscountValid;
         _discountError = calculation.DiscountError;
         Changed(nameof(Subtotal)); Changed(nameof(DiscountTotal)); Changed(nameof(TaxTotal)); Changed(nameof(GrandTotal));
+        RefreshFormattedAmounts();
         Changed(nameof(DiscountError)); Changed(nameof(CanComplete));
         CompleteSaleCommand?.Refresh();
         RecalculateChange();
@@ -453,9 +476,24 @@ public sealed class PosViewModel : INotifyPropertyChanged
                 + (decimal.TryParse(MixedCardText, NumberStyles.Number, CultureInfo.CurrentCulture, out var card) ? card : 0)
             : decimal.TryParse(PaidText, NumberStyles.Number, CultureInfo.CurrentCulture, out var amount) ? amount : 0;
         _changeSummary = PaymentMethod == "Mixed"
-            ? $"Remaining: {Math.Max(0, GrandTotal - paid):N2}"
-            : $"Change: {(PaymentMethod == "Cash" ? SaleCalculator.Change(paid, GrandTotal) : 0):N2}";
+            ? $"Remaining: {FormatAmount(Math.Max(0, GrandTotal - paid))}"
+            : $"Change: {FormatAmount(PaymentMethod == "Cash" ? SaleCalculator.Change(paid, GrandTotal) : 0)}";
         Changed(nameof(ChangeSummary));
+    }
+
+    private string FormatAmount(decimal amount)
+    {
+        var formatted = amount.ToString("N2", CultureInfo.CurrentCulture);
+        return string.IsNullOrWhiteSpace(Currency) ? formatted : $"{Currency} {formatted}";
+    }
+
+    private void RefreshFormattedAmounts()
+    {
+        Changed(nameof(FormattedSubtotal));
+        Changed(nameof(FormattedDiscountTotal));
+        Changed(nameof(FormattedTaxTotal));
+        Changed(nameof(FormattedGrandTotal));
+        RecalculateChange();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -467,8 +505,9 @@ public sealed record PosCheckoutRequest(int? CustomerId, string PaymentMethod, d
     SaleTotals Totals, IReadOnlyCollection<(string Method, decimal Amount)>? PaymentBreakdown);
 
 public sealed class PosCartLine(int productId, string productName, decimal quantity, decimal unitPrice,
-    decimal taxRate, decimal discountRate, decimal available) : INotifyPropertyChanged
+    decimal taxRate, decimal discountRate, decimal available, string currency = "") : INotifyPropertyChanged
 {
+    private readonly string _currency = currency;
     public event PropertyChangedEventHandler? PropertyChanged;
     public int ProductId { get; } = productId;
     public string ProductName { get; } = productName;
@@ -484,6 +523,7 @@ public sealed class PosCartLine(int productId, string productName, decimal quant
             _quantity = value;
             PropertyChanged?.Invoke(this, new(nameof(Quantity)));
             PropertyChanged?.Invoke(this, new(nameof(LineTotal)));
+            PropertyChanged?.Invoke(this, new(nameof(FormattedLineTotal)));
         }
     }
     public decimal UnitPrice { get; } = unitPrice;
@@ -499,8 +539,17 @@ public sealed class PosCartLine(int productId, string productName, decimal quant
             _discountRate = value;
             PropertyChanged?.Invoke(this, new(nameof(DiscountRate)));
             PropertyChanged?.Invoke(this, new(nameof(LineTotal)));
+            PropertyChanged?.Invoke(this, new(nameof(FormattedLineTotal)));
         }
     }
     public decimal Available { get; } = available;
     public decimal LineTotal => Quantity * UnitPrice * (1 - DiscountRate / 100m) * (1 + TaxRate / 100m);
+    public string FormattedUnitPrice => FormatAmount(UnitPrice);
+    public string FormattedLineTotal => FormatAmount(LineTotal);
+
+    private string FormatAmount(decimal amount)
+    {
+        var formatted = amount.ToString("N2", CultureInfo.CurrentCulture);
+        return string.IsNullOrWhiteSpace(_currency) ? formatted : $"{_currency} {formatted}";
+    }
 }

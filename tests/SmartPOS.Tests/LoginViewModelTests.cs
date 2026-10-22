@@ -25,6 +25,7 @@ public sealed class LoginViewModelTests
         await viewModel.InitializeAsync("Corner Shop");
         Assert.True(viewModel.SetupRequired);
         Assert.Contains("first administrator", viewModel.ModeText);
+        Assert.Equal("Create administrator", viewModel.ButtonText);
         viewModel.UserName = " owner ";
         viewModel.DisplayName = " Store Owner ";
         Assert.False(await viewModel.SubmitAsync("short", "short"));
@@ -32,7 +33,15 @@ public sealed class LoginViewModelTests
         Assert.False(await viewModel.SubmitAsync("long enough password", "different password"));
         Assert.Contains("do not match", viewModel.Status);
 
+        var buttonLabels = new List<string>();
+        viewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(viewModel.ButtonText)) buttonLabels.Add(viewModel.ButtonText);
+        };
         Assert.True(await viewModel.SubmitAsync("a sufficiently long password", "a sufficiently long password"));
+        Assert.Contains("Creating account…", buttonLabels);
+        Assert.Equal("Create administrator", viewModel.ButtonText);
+        Assert.False(viewModel.IsBusy);
         Assert.Equal("owner", viewModel.CurrentUser?.UserName);
         Assert.Equal("Administrator", viewModel.CurrentUser?.Role);
         Assert.False(await viewModel.SubmitAsync("another sufficiently long password", "another sufficiently long password"));
@@ -60,10 +69,19 @@ public sealed class LoginViewModelTests
 
         await viewModel.InitializeAsync("SmartPOS");
         Assert.False(viewModel.SetupRequired);
+        Assert.Equal("Sign in", viewModel.ButtonText);
         Assert.False(await viewModel.SubmitAsync("incorrect password"));
         Assert.Contains("incorrect", viewModel.Status);
         viewModel.UserName = " cashier ";
+        var buttonLabels = new List<string>();
+        viewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(viewModel.ButtonText)) buttonLabels.Add(viewModel.ButtonText);
+        };
         Assert.True(await viewModel.SubmitAsync("a sufficiently long password"));
+        Assert.Contains("Signing in…", buttonLabels);
+        Assert.Equal("Sign in", viewModel.ButtonText);
+        Assert.False(viewModel.IsBusy);
         Assert.Equal(cashier.Id, viewModel.CurrentUser?.Id);
     }
 }

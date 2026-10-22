@@ -1,20 +1,24 @@
 using System.Windows.Input;
 using System.Windows;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using SmartPOS.App.Services;
 
 namespace SmartPOS.App.ViewModels;
 
-public sealed class AsyncCommand(Func<Task> execute, Func<bool>? canExecute = null, Action<Exception>? onError = null) : ICommand
+public sealed class AsyncCommand(Func<Task> execute, Func<bool>? canExecute = null, Action<Exception>? onError = null) : ICommand, INotifyPropertyChanged
 {
     private bool _running;
+    public bool IsRunning => _running;
     public event EventHandler? CanExecuteChanged;
+    public event PropertyChangedEventHandler? PropertyChanged;
     public bool CanExecute(object? parameter) => !_running && (canExecute?.Invoke() ?? true);
     public async void Execute(object? parameter) => await ExecuteAsync(parameter);
 
     public async Task ExecuteAsync(object? parameter = null)
     {
         if (!CanExecute(parameter)) return;
-        _running = true; CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+        SetRunning(true);
         try { await execute(); }
         catch (Exception exception)
         {
@@ -28,10 +32,20 @@ public sealed class AsyncCommand(Func<Task> execute, Func<bool>? canExecute = nu
                 Serilog.Log.Error(handlerException, "The command error handler failed");
             }
         }
-        finally { _running = false; CanExecuteChanged?.Invoke(this, EventArgs.Empty); }
+        finally { SetRunning(false); }
     }
 
     public void Refresh() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+
+    private void SetRunning(bool value)
+    {
+        if (_running == value) return;
+        _running = value;
+        Changed(nameof(IsRunning));
+        CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void Changed([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new(name));
 
     private static void ShowUnexpectedFailure(Exception exception)
     {

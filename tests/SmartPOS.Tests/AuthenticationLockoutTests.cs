@@ -82,4 +82,27 @@ public sealed class AuthenticationLockoutTests
         Assert.Null(signedIn.LockoutUntilUtc);
         Assert.Single(await db.AuditEntries.Where(x => x.Action == "SignIn").ToListAsync());
     }
+
+    [Fact]
+    public async Task SuccessfulLegacyBcryptLoginUpgradesHashInPlace()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var options = new DbContextOptionsBuilder<PosDbContext>().UseSqlite(connection).Options;
+        await using var db = new PosDbContext(options);
+        await db.Database.MigrateAsync();
+        const string password = "legacy password";
+        var user = new AppUser { UserName = "legacy-user", DisplayName = "Legacy user",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password, workFactor: 4), Role = "Cashier" };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var hasher = new PasswordHasher();
+
+        Assert.NotNull(await new AuthenticationService(db, hasher).LoginAsync(user.UserName, password));
+
+        db.ChangeTracker.Clear();
+        var upgraded = await db.Users.AsNoTracking().SingleAsync(x => x.Id == user.Id);
+        Assert.False(hasher.NeedsRehash(upgraded.PasswordHash));
+        Assert.True(hasher.Verify(password, upgraded.PasswordHash));
+    }
 }

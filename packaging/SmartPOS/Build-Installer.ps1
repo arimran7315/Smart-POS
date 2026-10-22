@@ -1,13 +1,36 @@
+[CmdletBinding()]
+param(
+    [string] $PublishDirectory,
+    [string] $OutputPath
+)
+
 $ErrorActionPreference = 'Stop'
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$publishDirectory = Join-Path $repositoryRoot 'artifacts\SmartPOS-win-x64'
+if ([string]::IsNullOrWhiteSpace($PublishDirectory)) {
+    $PublishDirectory = Join-Path $repositoryRoot 'artifacts\SmartPOS-win-x64'
+} elseif (-not [System.IO.Path]::IsPathRooted($PublishDirectory)) {
+    $PublishDirectory = Join-Path $repositoryRoot $PublishDirectory
+}
+$publishDirectory = [System.IO.Path]::GetFullPath($PublishDirectory)
+$artifactsRoot = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot 'artifacts')).TrimEnd('\') + '\'
+if (-not $publishDirectory.StartsWith($artifactsRoot, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'The publish directory must remain inside the repository artifacts directory.'
+}
 $executablePath = Join-Path $publishDirectory 'SmartPOS.App.exe'
 $settingsPath = Join-Path $publishDirectory 'appsettings.json'
 $installScriptPath = Join-Path $publishDirectory 'Install.ps1'
 $installCommandPath = Join-Path $publishDirectory 'Install.cmd'
 $uninstallScriptPath = Join-Path $publishDirectory 'Uninstall.ps1'
-$outputPath = Join-Path $repositoryRoot 'artifacts\SmartPOS-Setup.exe'
+if ([string]::IsNullOrWhiteSpace($OutputPath)) {
+    $OutputPath = Join-Path $repositoryRoot 'artifacts\SmartPOS-Setup.exe'
+} elseif (-not [System.IO.Path]::IsPathRooted($OutputPath)) {
+    $OutputPath = Join-Path $repositoryRoot $OutputPath
+}
+$outputPath = [System.IO.Path]::GetFullPath($OutputPath)
+if (-not $outputPath.StartsWith($artifactsRoot, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'The setup executable target must remain inside the repository artifacts directory.'
+}
 $sedPath = Join-Path $repositoryRoot 'artifacts\SmartPOS-Setup.sed'
 $iexpressPath = Join-Path $env:WINDIR 'System32\iexpress.exe'
 
@@ -30,10 +53,7 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Install.ps1') -Destination $ins
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Install.cmd') -Destination $installCommandPath -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Uninstall.ps1') -Destination $uninstallScriptPath -Force
 
-$files = @($executablePath, $settingsPath, $installScriptPath, $installCommandPath, $uninstallScriptPath)
-if (Test-Path -LiteralPath $iconPublishPath -PathType Leaf) {
-    $files += $iconPublishPath
-}
+$files = (Get-ChildItem -LiteralPath $publishDirectory -File | Where-Object { $_.Extension -ne '.pdb' } | Select-Object -ExpandProperty FullName)
 $fileSection = for ($index = 0; $index -lt $files.Count; $index++) { "%FILE$index%=" }
 $stringSection = for ($index = 0; $index -lt $files.Count; $index++) { "FILE$index=`"$([System.IO.Path]::GetFileName($files[$index]))`"" }
 
@@ -78,12 +98,7 @@ $($fileSection -join "`r`n")
 "@
 $null = Set-Content -LiteralPath $sedPath -Value $sed -Encoding ASCII
 if (Test-Path -LiteralPath $outputPath -PathType Leaf) {
-    $artifactsRoot = (Resolve-Path (Join-Path $repositoryRoot 'artifacts')).Path.TrimEnd('\') + '\'
-    $resolvedOutputPath = [System.IO.Path]::GetFullPath($outputPath)
-    if (-not $resolvedOutputPath.StartsWith($artifactsRoot, [StringComparison]::OrdinalIgnoreCase)) {
-        throw 'The generated installer target must remain inside the repository artifacts directory.'
-    }
-    Remove-Item -LiteralPath $resolvedOutputPath -Force
+    Remove-Item -LiteralPath $outputPath -Force
 }
 $iexpress = Start-Process -FilePath $iexpressPath -ArgumentList @('/N', '/Q', $sedPath) -Wait -PassThru
 if ($iexpress.ExitCode -ne 0) { throw "IExpress failed with exit code $($iexpress.ExitCode)." }

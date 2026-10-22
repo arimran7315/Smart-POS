@@ -6,10 +6,10 @@ namespace SmartPOS.Infrastructure.Services;
 
 public sealed class BackOfficeQueryService(PosDbContext db)
 {
-    public async Task<IReadOnlyList<Expense>> GetRecentExpensesAsync(int userId, int take = 25, CancellationToken ct = default)
+    public async Task<IReadOnlyList<Expense>> GetRecentExpensesAsync(int userId, int take = 200, CancellationToken ct = default)
     {
         await ServiceAuthorization.RequireAsync(db, userId, "Expenses.Manage", ct);
-        take = Math.Clamp(take, 1, 100);
+        take = Math.Clamp(take, 1, 1000);
         return await db.Expenses.AsNoTracking().OrderByDescending(x => x.SpentAtUtc).ThenByDescending(x => x.Id)
             .Take(take).ToListAsync(ct);
     }

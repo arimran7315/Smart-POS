@@ -54,6 +54,11 @@ public sealed class ReceiptPrinter
         lines.Add(($"Tax:      {currency} {sale.Tax:N2}", false, false));
         lines.Add(($"TOTAL:    {currency} {sale.GrandTotal:N2}", true, false));
         lines.Add(($"Payment:  {sale.PaymentMethod}", false, false));
+        if (sale.PaymentMethod.Equals("Mixed", StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var payment in sale.Payments.OrderBy(x => x.Method.Equals("Cash", StringComparison.OrdinalIgnoreCase) ? 0 : 1))
+                lines.Add(($"  {payment.Method}: {currency} {payment.Amount:N2}", false, false));
+        }
         lines.Add(($"Paid:     {currency} {sale.PaidAmount:N2}", false, false));
         if (sale.RemainingAmount > 0) lines.Add(($"Due:      {currency} {sale.RemainingAmount:N2}", false, false));
         else if (sale.PaymentMethod.Equals("Cash", StringComparison.OrdinalIgnoreCase))

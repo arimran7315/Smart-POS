@@ -12,6 +12,8 @@ using SmartPOS.Infrastructure.Data;
 using SmartPOS.Infrastructure.Security;
 using SmartPOS.Infrastructure.Printing;
 using SmartPOS.Infrastructure.Services;
+using SmartPOS.UseCases.Authentication;
+using SmartPOS.UseCases.Catalog;
 
 namespace SmartPOS.App;
 
@@ -46,10 +48,11 @@ public partial class App : Application
                     options.UseSqlite($"Data Source={Path.Combine(folder, context.Configuration["Database:SqliteFileName"] ?? "smartpos.db")}");
                 else throw new InvalidOperationException($"Unsupported database provider '{provider}'.");
             });
-            services.AddSingleton<PasswordHasher>(); services.AddScoped<AuthenticationService>(); services.AddScoped<SaleService>(); services.AddScoped<HeldSaleService>(); services.AddScoped<InventoryService>(); services.AddScoped<PurchaseService>(); services.AddScoped<ReturnsService>(); services.AddScoped<PurchaseReturnsService>(); services.AddScoped<ProductService>(); services.AddScoped<DashboardService>(); services.AddScoped<DatabaseBackupService>();
+            services.AddSingleton<PasswordHasher>(); services.AddScoped<AuthenticationService>(); services.AddScoped<IAuthenticationService>(provider => provider.GetRequiredService<AuthenticationService>()); services.AddScoped<SaleService>(); services.AddScoped<HeldSaleService>(); services.AddScoped<InventoryService>(); services.AddScoped<IInventoryManagementService>(provider => provider.GetRequiredService<InventoryService>()); services.AddScoped<PurchaseService>(); services.AddScoped<ReturnsService>(); services.AddScoped<PurchaseReturnsService>(); services.AddScoped<ProductService>(); services.AddScoped<IProductCatalogService>(provider => provider.GetRequiredService<ProductService>()); services.AddScoped<DashboardService>(); services.AddScoped<DatabaseBackupService>();
             services.AddScoped<CustomerService>(); services.AddScoped<SupplierService>(); services.AddScoped<ExpenseService>(); services.AddScoped<PaymentService>(); services.AddScoped<CustomerAccountPaymentService>(); services.AddScoped<SupplierPaymentService>(); services.AddScoped<UserManagementService>(); services.AddScoped<SettingsService>();
             services.AddScoped<ReportsService>(); services.AddScoped<PosScreenService>(); services.AddScoped<BackOfficeQueryService>(); services.AddScoped<AuditService>();
-            services.AddScoped<CatalogTaxonomyService>();
+            services.AddScoped<QuotationService>(); services.AddScoped<ShiftService>();
+            services.AddScoped<CatalogTaxonomyService>(); services.AddScoped<ICatalogTaxonomyService>(provider => provider.GetRequiredService<CatalogTaxonomyService>());
             services.AddSingleton<IRawPrinter, WindowsRawPrinter>();
             services.AddTransient<ReceiptPrinter>();
         }).Build();
@@ -100,7 +103,7 @@ public partial class App : Application
             while (true)
             {
                 var applicationName = Convert.ToString(Resources["AppName"]) ?? "SmartPOS";
-                var login = new LoginWindow(_scope.ServiceProvider.GetRequiredService<AuthenticationService>())
+                var login = new LoginWindow(_scope.ServiceProvider.GetRequiredService<IAuthenticationService>())
                 { Title = $"{applicationName} | Sign in" };
                 if (login.ShowDialog() != true) { Shutdown(); return; }
 

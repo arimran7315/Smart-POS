@@ -10,6 +10,7 @@ public partial class ReportPrintPreviewWindow : Window
     public ReportPrintPreviewWindow(FlowDocument document)
     {
         InitializeComponent();
+        WindowLayout.FitToWorkArea(this);
         Title = $"{SmartPosIdentity.Name} | Report print preview";
         DocumentReader.Document = document;
     }

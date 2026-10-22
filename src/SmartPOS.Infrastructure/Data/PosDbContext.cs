@@ -13,6 +13,7 @@ public sealed class PosDbContext(DbContextOptions<PosDbContext> options) : DbCon
     public DbSet<PurchaseReturn> PurchaseReturns => Set<PurchaseReturn>(); public DbSet<PurchaseReturnItem> PurchaseReturnItems => Set<PurchaseReturnItem>(); public DbSet<SupplierPayment> SupplierPayments => Set<SupplierPayment>(); public DbSet<CustomerAccountPayment> CustomerAccountPayments => Set<CustomerAccountPayment>();
     public DbSet<HeldSale> HeldSales => Set<HeldSale>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>(); public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>(); public DbSet<AppSetting> Settings => Set<AppSetting>();
+    public DbSet<Quotation> Quotations => Set<Quotation>(); public DbSet<QuotationItem> QuotationItems => Set<QuotationItem>(); public DbSet<Shift> Shifts => Set<Shift>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -30,10 +31,7 @@ public sealed class PosDbContext(DbContextOptions<PosDbContext> options) : DbCon
             b.Entity(type.ClrType).Property<DateTime>(nameof(Entity.CreatedAtUtc)).HasConversion(v => v, v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
             foreach (var p in type.GetProperties().Where(p => p.ClrType == typeof(decimal) || p.ClrType == typeof(decimal?)))
             {
-                var property = b.Entity(type.ClrType).Property(p.Name);
-                if (Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite" && p.ClrType == typeof(decimal))
-                    property.HasConversion(new ValueConverter<decimal, long>(v => (long)decimal.Round(v * 10_000m, 0, MidpointRounding.AwayFromZero), v => v / 10_000m)).HasColumnType("INTEGER");
-                else property.HasPrecision(18, 4);
+                b.Entity(type.ClrType).Property(p.Name).HasPrecision(18, 4);
             }
         }
         b.Entity<Sale>().HasMany(x => x.Items).WithOne().HasForeignKey(x => x.SaleId).OnDelete(DeleteBehavior.Restrict);
@@ -70,5 +68,14 @@ public sealed class PosDbContext(DbContextOptions<PosDbContext> options) : DbCon
         b.Entity<AuditEntry>().HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
         b.Entity<Product>().HasOne(x => x.Category).WithMany().HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<Product>().HasOne(x => x.Brand).WithMany().HasForeignKey(x => x.BrandId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<Quotation>().HasIndex(x => x.QuoteNumber).IsUnique();
+        b.Entity<Quotation>().HasIndex(x => x.QuotedAtUtc);
+        b.Entity<Quotation>().HasMany(x => x.Items).WithOne().HasForeignKey(x => x.QuotationId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<Quotation>().HasOne<Customer>().WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<Quotation>().HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<Quotation>().HasOne<Sale>().WithMany().HasForeignKey(x => x.ConvertedSaleId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<QuotationItem>().HasOne<Product>().WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<Shift>().HasIndex(x => x.OpenedAtUtc);
+        b.Entity<Shift>().HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
     }
 }

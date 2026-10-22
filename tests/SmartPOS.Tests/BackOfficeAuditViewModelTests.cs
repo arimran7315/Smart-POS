@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using SmartPOS.App.Services;
 using SmartPOS.App.ViewModels;
 using SmartPOS.Core.Entities;
 using SmartPOS.Infrastructure.Data;
@@ -26,7 +27,7 @@ public sealed class BackOfficeAuditViewModelTests
 
         var viewModel = new BackOfficeViewModel(new CustomerService(db), new SupplierService(db), new ExpenseService(db),
             new PaymentService(db), new CustomerAccountPaymentService(db), new SupplierPaymentService(db),
-            new BackOfficeQueryService(db), new AuditService(db), admin);
+            new BackOfficeQueryService(db), new AuditService(db), admin, new AcceptConfirmationService());
 
         await viewModel.InitializeAsync();
 
@@ -34,5 +35,10 @@ public sealed class BackOfficeAuditViewModelTests
         Assert.Equal("Create", entry.Action);
         Assert.Equal("Product", entry.EntityName);
         Assert.Equal("42", entry.EntityId);
+    }
+
+    private sealed class AcceptConfirmationService : IUserConfirmationService
+    {
+        public Task<bool> ConfirmAsync(string title, string message, ConfirmationKind kind = ConfirmationKind.Question) => Task.FromResult(true);
     }
 }

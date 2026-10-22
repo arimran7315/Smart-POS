@@ -134,7 +134,7 @@ public sealed class PosWorkflowTests
         Assert.Equal(30m, Assert.Single(await reports.GetDailyProfitAsync(admin.Id, today, today)).Profit);
         var cashierReport = Assert.Single(await reports.GetSalesByCashierAsync(admin.Id, today, today));
         Assert.Equal("Admin", cashierReport.CashierName);
-        Assert.Equal(210m, cashierReport.Sales);
+        Assert.Equal(105m, cashierReport.Sales);
         Assert.Equal(2, cashierReport.SaleCount);
         Assert.Equal(2, (await reports.GetSalesByCustomerAsync(admin.Id, today, today)).Count);
         Assert.Equal(140m, Assert.Single(await reports.GetPurchasesByDayAsync(admin.Id, today, today)).NetPurchases);

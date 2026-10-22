@@ -32,8 +32,8 @@ public static class Permissions
     private static readonly IReadOnlyDictionary<string, string[]> Grants = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
     {
         ["Administrator"] = ["*"],
-        ["Manager"] = ["Sales.View", "Sales.ViewAll", "Sales.Create", "Sales.Return", "Sales.Credit", "Payments.Receive", "Products.View", "Products.Manage", "Inventory.Manage", "Purchases.Manage", "Purchases.Return", "Customers.Manage", "Suppliers.Manage", "Expenses.Manage", "Reports.View", "Reports.Profit", "Settings.View", "Audit.View"],
-        ["Cashier"] = ["Sales.View", "Sales.Create", "Customers.View", "Products.View"],
+        ["Manager"] = ["Sales.View", "Sales.ViewAll", "Sales.Create", "Sales.Return", "Sales.Credit", "Sales.Quote", "Payments.Receive", "Products.View", "Products.Manage", "Inventory.Manage", "Purchases.Manage", "Purchases.Return", "Customers.Manage", "Suppliers.Manage", "Expenses.Manage", "Reports.View", "Reports.Profit", "Settings.View", "Audit.View", "Shift.Manage", "Shift.ViewAll"],
+        ["Cashier"] = ["Sales.View", "Sales.Create", "Sales.Quote", "Customers.View", "Products.View", "Shift.Manage"],
         ["Inventory Manager"] = ["Products.View", "Products.Manage", "Inventory.Manage", "Purchases.Manage", "Purchases.Return", "Suppliers.Manage"]
     };
     public static bool Has(string role, string permission) => Grants.TryGetValue(role, out var permissions) && (permissions.Contains("*") || permissions.Contains(permission, StringComparer.OrdinalIgnoreCase));

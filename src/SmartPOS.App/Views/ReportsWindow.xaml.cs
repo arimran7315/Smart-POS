@@ -22,7 +22,7 @@ public partial class ReportsWindow : Window
     private readonly ReportsViewModel _viewModel;
     public ReportsWindow(ReportsService reports, AppUser user)
     {
-        InitializeComponent(); Title = $"{SmartPosIdentity.Name} | Reports";
+        InitializeComponent(); WindowLayout.FitToWorkArea(this); Title = $"{SmartPosIdentity.Name} | Reports";
         _viewModel = new ReportsViewModel(reports, user); DataContext = _viewModel;
         if (!Permissions.Has(user.Role, "Reports.Profit")) ProfitTab.Visibility = Visibility.Collapsed;
         Loaded += async (_, _) => await _viewModel.RefreshAsync();
@@ -31,9 +31,9 @@ public partial class ReportsWindow : Window
     private void Export_Click(object sender, RoutedEventArgs e)
     {
         var grid = GetSelectedReportGrid();
-        if (grid?.ItemsSource is not IEnumerable source)
+        if (grid is null)
         { MessageBox.Show("Select a report table before exporting.", "Export report", MessageBoxButton.OK, MessageBoxImage.Information); return; }
-        var rows = source.Cast<object>().ToArray();
+        var rows = grid.Items.Cast<object>().ToArray();
         if (rows.Length == 0) { MessageBox.Show("There are no report rows to export.", "Export report", MessageBoxButton.OK, MessageBoxImage.Information); return; }
         var properties = rows[0].GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public).Where(x => x.CanRead).ToArray();
         var dialog = new SaveFileDialog { Filter = "CSV files (*.csv)|*.csv", DefaultExt = ".csv", AddExtension = true, FileName = $"smartpos-report-{DateTime.Today:yyyy-MM-dd}.csv" };
@@ -53,9 +53,9 @@ public partial class ReportsWindow : Window
     private void PrintPreview_Click(object sender, RoutedEventArgs e)
     {
         var grid = GetSelectedReportGrid();
-        if (grid?.ItemsSource is not IEnumerable source)
+        if (grid is null)
         { MessageBox.Show("Select a report table before opening print preview.", "Print preview", MessageBoxButton.OK, MessageBoxImage.Information); return; }
-        var rows = source.Cast<object>().ToArray();
+        var rows = grid.Items.Cast<object>().ToArray();
         if (rows.Length == 0)
         { MessageBox.Show("There are no report rows to print.", "Print preview", MessageBoxButton.OK, MessageBoxImage.Information); return; }
 

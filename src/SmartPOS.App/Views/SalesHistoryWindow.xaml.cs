@@ -13,7 +13,7 @@ public partial class SalesHistoryWindow : Window
     private readonly ReceiptPrinter _receiptPrinter;
     public SalesHistoryWindow(SaleService sales, ReturnsService returns, AppUser user, ReceiptPrinter receiptPrinter)
     {
-        InitializeComponent(); Title = $"{SmartPosIdentity.Name} | Sales and returns";
+        InitializeComponent(); WindowLayout.FitToWorkArea(this); Title = $"{SmartPosIdentity.Name} | Sales and returns";
         _receiptPrinter = receiptPrinter;
         _viewModel = new SalesHistoryViewModel(sales, returns, user, new WpfUserConfirmationService(this)); DataContext = _viewModel;
         Loaded += async (_, _) => await _viewModel.InitializeAsync();

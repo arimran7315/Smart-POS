@@ -4,6 +4,8 @@ using System.Data;
 using Microsoft.EntityFrameworkCore;
 using SmartPOS.Core.Entities;
 using SmartPOS.Core.Services;
+using SmartPOS.UseCases.Authentication;
+using SmartPOS.UseCases.Catalog;
 using SmartPOS.Infrastructure.Data;
 using SmartPOS.Infrastructure.Security;
 
@@ -35,7 +37,7 @@ internal static class ServiceAuthorization
     }
 }
 
-public sealed class AuthenticationService(PosDbContext db, PasswordHasher hasher)
+public sealed class AuthenticationService(PosDbContext db, PasswordHasher hasher) : IAuthenticationService
 {
     private const int MaxFailedLoginAttempts = 5;
     private static readonly TimeSpan LoginLockoutDuration = TimeSpan.FromMinutes(15);
@@ -69,6 +71,7 @@ public sealed class AuthenticationService(PosDbContext db, PasswordHasher hasher
         }
         user.FailedLoginAttempts = 0;
         user.LockoutUntilUtc = null;
+        if (hasher.NeedsRehash(user.PasswordHash)) user.PasswordHash = hasher.Hash(password);
         user.UpdatedAtUtc = now;
         db.AuditEntries.Add(new AuditEntry { UserId = user.Id, Action = "SignIn", EntityName = "Authentication", EntityId = user.Id.ToString(), Description = "User signed in." });
         await db.SaveChangesAsync(ct);
@@ -118,7 +121,7 @@ public sealed class SaleService(PosDbContext db)
     private async Task<Sale> GetVisibleReceiptSaleAsync(int saleId, int userId, CancellationToken ct)
     {
         var role = await ServiceAuthorization.RequireAndGetRoleAsync(db, userId, "Sales.View", ct);
-        IQueryable<Sale> query = db.Sales.AsNoTracking().Include(x => x.Items).Where(x => x.Id == saleId);
+        IQueryable<Sale> query = db.Sales.AsNoTracking().Include(x => x.Items).Include(x => x.Payments).Where(x => x.Id == saleId);
         if (!Permissions.Has(role, "Sales.ViewAll")) query = query.Where(x => x.UserId == userId);
         var sale = await query.SingleOrDefaultAsync(ct) ?? throw new PosRuleException("Sale was not found.");
         if (sale.Status == "Voided") throw new PosRuleException("A voided sale receipt cannot be reprinted.");
@@ -693,7 +696,7 @@ public sealed class PurchaseReturnsService(PosDbContext db)
     }
 }
 
-public sealed class InventoryService(PosDbContext db)
+public sealed class InventoryService(PosDbContext db) : IInventoryManagementService
 {
     public async Task AdjustAsync(int productId, decimal delta, int userId, string reason, CancellationToken ct = default)
     {
@@ -874,7 +877,7 @@ public sealed class DashboardService(PosDbContext db)
     }
 }
 
-public sealed class ProductService(PosDbContext db)
+public sealed class ProductService(PosDbContext db) : IProductCatalogService
 {
     public async Task RecordBarcodeLabelsPrintedAsync(int productId, int copies, int userId, CancellationToken ct = default)
     {

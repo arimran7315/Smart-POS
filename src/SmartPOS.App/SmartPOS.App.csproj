@@ -5,8 +5,11 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ApplicationIcon>SmartPOS.ico</ApplicationIcon>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\SmartPOS.Application\SmartPOS.Application.csproj" />
     <ProjectReference Include="..\SmartPOS.Core\SmartPOS.Core.csproj" />
     <ProjectReference Include="..\SmartPOS.Infrastructure\SmartPOS.Infrastructure.csproj" />
     <ProjectReference Include="..\SmartPOS.SqlServerMigrations\SmartPOS.SqlServerMigrations.csproj" />
@@ -20,6 +23,9 @@
   <ItemGroup>
     <Resource Include="SmartPOS.ico" />
     <Resource Include="Assets\**\*" />
-    <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
   </ItemGroup>
+  <Target Name="CopySmartPosConfigurationToPublishDirectory" AfterTargets="Publish">
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\appsettings.json" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

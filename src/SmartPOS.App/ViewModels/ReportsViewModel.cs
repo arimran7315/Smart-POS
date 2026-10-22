@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Windows.Data;
 using SmartPOS.App.Services;
 using SmartPOS.Core.Entities;
 using SmartPOS.Core.Services;
@@ -35,6 +36,7 @@ public sealed class ReportsViewModel : INotifyPropertyChanged
     public double ProfitChartMaximum { get => _profitChartMaximum; private set { _profitChartMaximum = value; Changed(); } }
     public double PurchasesChartMaximum { get => _purchasesChartMaximum; private set { _purchasesChartMaximum = value; Changed(); } }
     public ObservableCollection<TopProductRow> TopProducts { get; } = [];
+    public ObservableCollection<SalesByProductRow> SalesByProduct { get; } = [];
     public ObservableCollection<DailyProfitPoint> Profit { get; } = [];
     public ObservableCollection<CashierSalesRow> SalesByCashier { get; } = [];
     public ObservableCollection<CustomerSalesRow> SalesByCustomer { get; } = [];
@@ -52,10 +54,27 @@ public sealed class ReportsViewModel : INotifyPropertyChanged
     public string From { get => _from; set { _from = value; Changed(); } }
     public string Through { get => _through; set { _through = value; Changed(); } }
     public string Status { get => _status; private set { _status = value; Changed(); } }
+    private string _customerLedgerSearch = "", _supplierLedgerSearch = "";
+    public string CustomerLedgerSearch { get => _customerLedgerSearch; set { _customerLedgerSearch = value; Changed(); CollectionViewSource.GetDefaultView(CustomerLedger).Refresh(); } }
+    public string SupplierLedgerSearch { get => _supplierLedgerSearch; set { _supplierLedgerSearch = value; Changed(); CollectionViewSource.GetDefaultView(SupplierLedger).Refresh(); } }
     public AsyncCommand RefreshCommand { get; }
     public ReportsViewModel(ReportsService reports, AppUser user)
     {
         _reports = reports; _user = user; RefreshCommand = new(RefreshAsync);
+        CollectionViewSource.GetDefaultView(CustomerLedger).Filter = o =>
+        {
+            if (string.IsNullOrWhiteSpace(CustomerLedgerSearch)) return true;
+            var term = CustomerLedgerSearch.Trim();
+            return o is CustomerLedgerRow r && ((r.CustomerName?.Contains(term, StringComparison.CurrentCultureIgnoreCase) ?? false)
+                || (r.Reference?.Contains(term, StringComparison.CurrentCultureIgnoreCase) ?? false));
+        };
+        CollectionViewSource.GetDefaultView(SupplierLedger).Filter = o =>
+        {
+            if (string.IsNullOrWhiteSpace(SupplierLedgerSearch)) return true;
+            var term = SupplierLedgerSearch.Trim();
+            return o is SupplierLedgerRow r && ((r.SupplierName?.Contains(term, StringComparison.CurrentCultureIgnoreCase) ?? false)
+                || (r.Reference?.Contains(term, StringComparison.CurrentCultureIgnoreCase) ?? false));
+        };
     }
     public async Task RefreshAsync()
     {
@@ -66,6 +85,7 @@ public sealed class ReportsViewModel : INotifyPropertyChanged
         {
             Sales.Clear(); foreach (var row in await _reports.GetDailySalesAsync(_user.Id, from, through)) Sales.Add(row);
             SalesChartMaximum = SetChart(SalesChart, Sales.Select(x => (x.Day.ToString("MM-dd", CultureInfo.InvariantCulture), x.SalesTotal)));
+            SalesByProduct.Clear(); foreach (var row in await _reports.GetSalesByProductAsync(_user.Id, from, through)) SalesByProduct.Add(row);
             TopProducts.Clear(); foreach (var row in await _reports.GetTopProductsAsync(_user.Id, from, through)) TopProducts.Add(row);
             TopProductsChartMaximum = SetChart(TopProductsChart, TopProducts.Select(x => (x.ProductName, x.Revenue)));
             SalesByCashier.Clear(); foreach (var row in await _reports.GetSalesByCashierAsync(_user.Id, from, through)) SalesByCashier.Add(row);

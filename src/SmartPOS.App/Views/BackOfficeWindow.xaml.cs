@@ -21,9 +21,9 @@ public partial class BackOfficeWindow : Window
         BackOfficeQueryService queries, SettingsService settings, DatabaseBackupService backup, AuditService audit,
         UserManagementService userManagement)
     {
-        InitializeComponent(); _user = user; _backup = backup;
+        InitializeComponent(); WindowLayout.FitToWorkArea(this); _user = user; _backup = backup;
         Title = $"{SmartPosIdentity.Name} | Business operations";
-        _viewModel = new BackOfficeViewModel(customers, suppliers, expenses, payments, customerAccountPayments, supplierPayments, queries, audit, user);
+        _viewModel = new BackOfficeViewModel(customers, suppliers, expenses, payments, customerAccountPayments, supplierPayments, queries, audit, user, new WpfUserConfirmationService(this));
         DataContext = _viewModel;
         _userViewModel = new UserManagementViewModel(userManagement, user);
         _userViewModel.PropertyChanged += (_, args) =>

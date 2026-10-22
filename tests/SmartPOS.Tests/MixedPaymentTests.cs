@@ -41,5 +41,10 @@ public sealed class MixedPaymentTests
         Assert.Equal(40m, sale.Payments.Single(x => x.Method == "Cash").Amount);
         Assert.Equal(65m, sale.Payments.Single(x => x.Method == "Card").Amount);
         Assert.Equal(1m, product.CurrentStock);
+
+        var reprint = await sales.GetReceiptForReprintAsync(sale.Id, cashier.Id);
+        Assert.Equal(2, reprint.Sale.Payments.Count);
+        Assert.Equal(40m, reprint.Sale.Payments.Single(x => x.Method == "Cash").Amount);
+        Assert.Equal(65m, reprint.Sale.Payments.Single(x => x.Method == "Card").Amount);
     }
 }

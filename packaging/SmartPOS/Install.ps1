@@ -36,13 +36,9 @@ function Execute-Step1 {
 }
 
 function Execute-Step2 {
-    # Step 2: Copy files
-    Copy-Item -LiteralPath (Join-Path $sourceDirectory $applicationFile) -Destination $InstallDirectory -Force
-    Copy-Item -LiteralPath (Join-Path $sourceDirectory 'appsettings.json') -Destination $InstallDirectory -Force
-    Copy-Item -LiteralPath (Join-Path $sourceDirectory 'Uninstall.ps1') -Destination $InstallDirectory -Force
-    
-    if (Test-Path -LiteralPath (Join-Path $sourceDirectory $iconFile) -PathType Leaf) {
-        Copy-Item -LiteralPath (Join-Path $sourceDirectory $iconFile) -Destination $InstallDirectory -Force
+    # Step 2: Copy all application files and native libraries
+    Get-ChildItem -LiteralPath $sourceDirectory -File | Where-Object { $_.Name -notin @('Install.cmd', 'Install.ps1') } | ForEach-Object {
+        Copy-Item -LiteralPath $_.FullName -Destination $InstallDirectory -Force
     }
 }
 

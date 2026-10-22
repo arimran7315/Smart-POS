@@ -715,6 +715,139 @@ namespace SmartPOS.SqlServerMigrations.Migrations
                     b.ToTable("PurchaseReturnItems");
                 });
 
+            modelBuilder.Entity("SmartPOS.Core.Entities.Quotation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("BillDiscount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int?>("ConvertedSaleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Discount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("GrandTotal")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("QuoteNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("QuotedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("Tax")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ValidUntilUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConvertedSaleId");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("QuoteNumber")
+                        .IsUnique();
+
+                    b.HasIndex("QuotedAtUtc");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Quotations");
+                });
+
+            modelBuilder.Entity("SmartPOS.Core.Entities.QuotationItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Discount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("DiscountRate")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("QuotationId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Tax")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("QuotationId");
+
+                    b.ToTable("QuotationItems");
+                });
+
             modelBuilder.Entity("SmartPOS.Core.Entities.Sale", b =>
                 {
                     b.Property<int>("Id")
@@ -939,6 +1072,61 @@ namespace SmartPOS.SqlServerMigrations.Migrations
                     b.HasIndex("SaleReturnId");
 
                     b.ToTable("ReturnItems");
+                });
+
+            modelBuilder.Entity("SmartPOS.Core.Entities.Shift", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("CashVariance")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime?>("ClosedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("CountedCash")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("ExpectedCash")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("OpenedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("OpeningFloat")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OpenedAtUtc");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Shifts");
                 });
 
             modelBuilder.Entity("SmartPOS.Core.Entities.StockMovement", b =>
@@ -1213,6 +1401,40 @@ namespace SmartPOS.SqlServerMigrations.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SmartPOS.Core.Entities.Quotation", b =>
+                {
+                    b.HasOne("SmartPOS.Core.Entities.Sale", null)
+                        .WithMany()
+                        .HasForeignKey("ConvertedSaleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SmartPOS.Core.Entities.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SmartPOS.Core.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SmartPOS.Core.Entities.QuotationItem", b =>
+                {
+                    b.HasOne("SmartPOS.Core.Entities.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SmartPOS.Core.Entities.Quotation", null)
+                        .WithMany("Items")
+                        .HasForeignKey("QuotationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SmartPOS.Core.Entities.Sale", b =>
                 {
                     b.HasOne("SmartPOS.Core.Entities.Customer", null)
@@ -1278,6 +1500,15 @@ namespace SmartPOS.SqlServerMigrations.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SmartPOS.Core.Entities.Shift", b =>
+                {
+                    b.HasOne("SmartPOS.Core.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SmartPOS.Core.Entities.StockMovement", b =>
                 {
                     b.HasOne("SmartPOS.Core.Entities.Product", null)
@@ -1319,6 +1550,11 @@ namespace SmartPOS.SqlServerMigrations.Migrations
                 });
 
             modelBuilder.Entity("SmartPOS.Core.Entities.PurchaseReturn", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("SmartPOS.Core.Entities.Quotation", b =>
                 {
                     b.Navigation("Items");
                 });

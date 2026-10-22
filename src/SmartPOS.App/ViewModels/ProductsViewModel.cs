@@ -5,14 +5,15 @@ using SmartPOS.App.Services;
 using SmartPOS.Core.Entities;
 using SmartPOS.Core.Services;
 using SmartPOS.Infrastructure.Services;
+using SmartPOS.UseCases.Catalog;
 
 namespace SmartPOS.App.ViewModels;
 
 public sealed class ProductsViewModel : INotifyPropertyChanged
 {
-    private readonly ProductService _products;
-    private readonly InventoryService _inventory;
-    private readonly CatalogTaxonomyService _taxonomy;
+    private readonly IProductCatalogService _products;
+    private readonly IInventoryManagementService _inventory;
+    private readonly ICatalogTaxonomyService _taxonomy;
     private readonly IUserConfirmationService _confirmation;
     private readonly int _userId;
     private readonly string _role;
@@ -67,7 +68,7 @@ public sealed class ProductsViewModel : INotifyPropertyChanged
     public AsyncCommand NewCategoryCommand { get; }
     public AsyncCommand NewBrandCommand { get; }
 
-    public ProductsViewModel(ProductService products, InventoryService inventory, CatalogTaxonomyService taxonomy, int userId, string role, IUserConfirmationService confirmation)
+    public ProductsViewModel(IProductCatalogService products, IInventoryManagementService inventory, ICatalogTaxonomyService taxonomy, int userId, string role, IUserConfirmationService confirmation)
     {
         _products = products; _inventory = inventory; _taxonomy = taxonomy; _userId = userId; _role = role; _confirmation = confirmation;
         SearchCommand = new(async () => { _pageIndex = 0; await LoadAsync(); });

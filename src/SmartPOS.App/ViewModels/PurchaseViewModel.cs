@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Windows.Data;
 using SmartPOS.App.Services;
 using SmartPOS.Core.Entities;
 using SmartPOS.Core.Services;
@@ -40,6 +41,7 @@ public sealed class PurchaseViewModel : INotifyPropertyChanged
     private OutstandingPurchasePayment? _selectedOpenPurchase;
     private string _supplierPaymentAmount = "", _supplierPaymentMethod = "Cash", _supplierPaymentReference = "";
     private string _initialPaymentAmount = "0", _initialPaymentMethod = "Cash", _initialPaymentReference = "";
+    private string _outstandingSearch = "";
     public IReadOnlyList<string> PaymentMethods { get; } = ["Cash", "Card", "Bank transfer"];
     public bool CanMakePayments => Permissions.Has(_role, "Payments.Make");
     public ObservableCollection<Product> Products { get; } = [];
@@ -69,6 +71,7 @@ public sealed class PurchaseViewModel : INotifyPropertyChanged
     public string InitialPaymentAmount { get => _initialPaymentAmount; set { _initialPaymentAmount = value; Changed(); ReceiveCommand?.Refresh(); } }
     public string InitialPaymentMethod { get => _initialPaymentMethod; set { _initialPaymentMethod = value; Changed(); } }
     public string InitialPaymentReference { get => _initialPaymentReference; set { _initialPaymentReference = value; Changed(); } }
+    public string OutstandingSearch { get => _outstandingSearch; set { _outstandingSearch = value; Changed(); CollectionViewSource.GetDefaultView(OutstandingPurchases).Refresh(); } }
     public decimal Total => Lines.Sum(x => x.Total);
     public AsyncCommand AddLineCommand { get; }
     public AsyncCommand RemoveLineCommand { get; }
@@ -98,6 +101,14 @@ public sealed class PurchaseViewModel : INotifyPropertyChanged
         RecordPurchasePaymentCommand = new(RecordPurchasePaymentAsync, () => SelectedOpenPurchase is not null
             && decimal.TryParse(SupplierPaymentAmount, NumberStyles.Number, CultureInfo.CurrentCulture, out var amount)
             && amount > 0 && amount <= SelectedOpenPurchase.RemainingAmount && Permissions.Has(_role, "Payments.Make"));
+        CollectionViewSource.GetDefaultView(OutstandingPurchases).Filter = o =>
+        {
+            if (string.IsNullOrWhiteSpace(OutstandingSearch)) return true;
+            var term = OutstandingSearch.Trim();
+            return o is OutstandingPurchasePayment p &&
+                ((p.InvoiceNumber?.Contains(term, StringComparison.CurrentCultureIgnoreCase) ?? false)
+                 || (p.SupplierName?.Contains(term, StringComparison.CurrentCultureIgnoreCase) ?? false));
+        };
     }
     public async Task InitializeAsync() => await LoadAsync();
     private async Task LoadAsync()

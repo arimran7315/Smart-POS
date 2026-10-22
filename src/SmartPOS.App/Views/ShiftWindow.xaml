@@ -1,0 +1,79 @@
+<Window x:Class="SmartPOS.App.Views.ShiftWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Shift and cash drawer" Width="1080" Height="720" MinWidth="880" MinHeight="580" WindowStartupLocation="CenterOwner" Background="{DynamicResource WindowBackground}">
+  <Window.Resources><BooleanToVisibilityConverter x:Key="BoolVisibility"/></Window.Resources>
+  <DockPanel Margin="18">
+    <TextBlock DockPanel.Dock="Top" Text="Shift and cash drawer" FontSize="26" FontWeight="Bold" Margin="0,0,0,14"/>
+    <TextBlock DockPanel.Dock="Bottom" Text="{Binding Status}" Foreground="{DynamicResource SecondaryText}" Margin="4,12" TextWrapping="Wrap"/>
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="1.1*"/></Grid.ColumnDefinitions>
+      <!-- Left: open / close controls + X/Z summary -->
+      <StackPanel Grid.Column="0" Margin="0,0,12,0">
+        <Border Background="{DynamicResource CardBackground}" CornerRadius="10" Padding="16" Visibility="{Binding NoOpenShift, Converter={StaticResource BoolVisibility}}">
+          <StackPanel>
+            <TextBlock Text="Open a shift" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
+            <TextBlock Text="Opening cash float"/>
+            <TextBox Text="{Binding OpeningFloat, UpdateSourceTrigger=PropertyChanged}"/>
+            <Button Content="Open shift" Command="{Binding OpenShiftCommand}" Background="{DynamicResource Accent}" Foreground="White" HorizontalAlignment="Right" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+        <Border Background="{DynamicResource CardBackground}" CornerRadius="10" Padding="16" Visibility="{Binding HasOpenShift, Converter={StaticResource BoolVisibility}}">
+          <StackPanel>
+            <TextBlock Text="Close shift (Z report)" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
+            <TextBlock Text="Counted cash in drawer"/>
+            <TextBox Text="{Binding CountedCash, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="Notes"/>
+            <TextBox Text="{Binding CloseNotes, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" MinHeight="48" TextWrapping="Wrap"/>
+            <WrapPanel HorizontalAlignment="Right" Margin="0,8,0,0">
+              <Button Content="Refresh totals (X)" Command="{Binding RefreshSummaryCommand}"/>
+              <Button Content="Close shift" Command="{Binding CloseShiftCommand}" Background="{DynamicResource Danger}" Foreground="White"/>
+            </WrapPanel>
+          </StackPanel>
+        </Border>
+        <Border Background="{DynamicResource CardBackground}" CornerRadius="10" Padding="16" Margin="0,12,0,0" DataContext="{Binding Summary}">
+          <StackPanel>
+            <TextBlock Text="Shift summary" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,10"/>
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+              <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+              <TextBlock Grid.Row="0" Text="Cashier"/><TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CashierName}" FontWeight="SemiBold"/>
+              <TextBlock Grid.Row="1" Text="Sales count"/><TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SaleCount}"/>
+              <TextBlock Grid.Row="2" Text="Gross sales"/><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding GrossSales, StringFormat=N2}"/>
+              <TextBlock Grid.Row="3" Text="Cash sales"/><TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding CashSales, StringFormat=N2}"/>
+              <TextBlock Grid.Row="4" Text="Card sales"/><TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding CardSales, StringFormat=N2}"/>
+              <TextBlock Grid.Row="5" Text="Credit (unpaid)"/><TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding CreditSales, StringFormat=N2}"/>
+              <TextBlock Grid.Row="6" Text="Refunds"/><TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Refunds, StringFormat=N2}"/>
+              <TextBlock Grid.Row="7" Text="Cash expenses"/><TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding CashExpenses, StringFormat=N2}"/>
+              <Separator Grid.Row="8" Grid.ColumnSpan="2" Margin="0,6"/>
+            </Grid>
+            <Grid Margin="0,6,0,0">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+              <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+              <TextBlock Grid.Row="0" Text="Opening float"/><TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding OpeningFloat, StringFormat=N2}"/>
+              <TextBlock Grid.Row="1" Text="Expected drawer cash" FontWeight="SemiBold"/><TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ExpectedCash, StringFormat=N2}" FontWeight="SemiBold"/>
+              <TextBlock Grid.Row="2" Text="Counted cash"/><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CountedCash, StringFormat=N2}"/>
+              <TextBlock Grid.Row="3" Text="Variance" FontWeight="SemiBold"/><TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding CashVariance, StringFormat=N2}" FontWeight="SemiBold" Foreground="{DynamicResource Accent}"/>
+            </Grid>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+      <!-- Right: shift history -->
+      <DockPanel Grid.Column="1">
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+          <TextBlock Text="Shift history" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+          <Button DockPanel.Dock="Right" Content="View selected" Command="{Binding ViewSelectedCommand}"/>
+          <Button DockPanel.Dock="Right" Content="Refresh" Command="{Binding RefreshListCommand}"/>
+        </DockPanel>
+        <DataGrid ItemsSource="{Binding Shifts}" SelectedItem="{Binding SelectedShift, Mode=TwoWay}" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Cashier" Binding="{Binding CashierName}" Width="*"/>
+            <DataGridTextColumn Header="Opened" Binding="{Binding OpenedAtUtc, StringFormat=g}" Width="140"/>
+            <DataGridTextColumn Header="Closed" Binding="{Binding ClosedAtUtc, StringFormat=g}" Width="140"/>
+            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="80"/>
+            <DataGridTextColumn Header="Expected" Binding="{Binding ExpectedCash, StringFormat=N2}" Width="90"/>
+            <DataGridTextColumn Header="Counted" Binding="{Binding CountedCash, StringFormat=N2}" Width="90"/>
+            <DataGridTextColumn Header="Variance" Binding="{Binding CashVariance, StringFormat=N2}" Width="90"/>
+          </DataGrid.Columns>
+        </DataGrid>
+      </DockPanel>
+    </Grid>
+  </DockPanel>
+</Window>

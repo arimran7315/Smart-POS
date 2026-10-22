@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows.Data;
 using SmartPOS.App.Services;
 using SmartPOS.Core.Entities;
 using SmartPOS.Core.Services;
@@ -13,7 +14,7 @@ namespace SmartPOS.App.ViewModels;
 public sealed class UserManagementViewModel : INotifyPropertyChanged
 {
     private readonly UserManagementService _users; private readonly int _actorId;
-    private UserAccountSummary? _selectedUser; private string _userName = "", _displayName = "", _password = "", _role = "Cashier", _status = "";
+    private UserAccountSummary? _selectedUser; private string _userName = "", _displayName = "", _password = "", _role = "Cashier", _status = "", _userSearch = "";
     public ObservableCollection<UserAccountSummary> Users { get; } = [];
     public IReadOnlyList<string> Roles { get; } = ["Administrator", "Manager", "Cashier", "Inventory Manager"];
     public UserAccountSummary? SelectedUser { get => _selectedUser; set { _selectedUser = value; Changed(); SaveCommand?.Refresh(); DeactivateCommand?.Refresh(); if (value is not null) { UserName = value.UserName; DisplayName = value.DisplayName; Role = value.Role; Password = ""; } } }
@@ -22,6 +23,7 @@ public sealed class UserManagementViewModel : INotifyPropertyChanged
     public string Password { get => _password; set { _password = value; Changed(); } }
     public string Role { get => _role; set { _role = value; Changed(); } }
     public string Status { get => _status; private set { _status = value; Changed(); } }
+    public string UserSearch { get => _userSearch; set { _userSearch = value; Changed(); CollectionViewSource.GetDefaultView(Users).Refresh(); } }
     public AsyncCommand RefreshCommand { get; }
     public AsyncCommand NewCommand { get; }
     public AsyncCommand SaveCommand { get; }
@@ -31,6 +33,15 @@ public sealed class UserManagementViewModel : INotifyPropertyChanged
         _users = users; _actorId = actor.Id;
         RefreshCommand = new(LoadAsync); NewCommand = new(() => { SelectedUser = null; UserName = ""; DisplayName = ""; Password = ""; Role = "Cashier"; Status = $"Create a user with a unique username and a password of at least {PasswordHasher.MinimumPasswordLength} characters."; return Task.CompletedTask; });
         SaveCommand = new(async () => { await SaveAsync(); }); DeactivateCommand = new(DeactivateAsync, () => SelectedUser is { Id: > 0, IsActive: true } && SelectedUser.Id != _actorId);
+        CollectionViewSource.GetDefaultView(Users).Filter = o =>
+        {
+            if (string.IsNullOrWhiteSpace(UserSearch)) return true;
+            var term = UserSearch.Trim();
+            return o is UserAccountSummary u &&
+                (u.UserName.Contains(term, StringComparison.CurrentCultureIgnoreCase)
+                 || u.DisplayName.Contains(term, StringComparison.CurrentCultureIgnoreCase)
+                 || u.Role.Contains(term, StringComparison.CurrentCultureIgnoreCase));
+        };
     }
     public async Task InitializeAsync() => await LoadAsync();
     private async Task LoadAsync()

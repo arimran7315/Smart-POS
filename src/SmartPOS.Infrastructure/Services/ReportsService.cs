@@ -6,6 +6,7 @@ namespace SmartPOS.Infrastructure.Services;
 
 public sealed record DailySalesPoint(DateOnly Day, decimal SalesTotal, int SaleCount);
 public sealed record TopProductRow(int ProductId, string ProductName, decimal UnitsSold, decimal Revenue);
+public sealed record SalesByProductRow(int ProductId, string ProductName, decimal UnitsSold, decimal Revenue);
 public sealed record DailyProfitPoint(DateOnly Day, decimal Profit);
 public sealed record CashierSalesRow(string CashierName, decimal Sales, int SaleCount);
 public sealed record CustomerSalesRow(string CustomerName, decimal Sales, int SaleCount);
@@ -53,13 +54,44 @@ public sealed class ReportsService(PosDbContext db)
                              join ret in db.Returns.AsNoTracking() on returned.SaleReturnId equals ret.Id
                              where ret.ReturnedAtUtc >= start && ret.ReturnedAtUtc < end
                              select new { returned.SaleItemId, returned.Quantity, returned.Refund }).ToListAsync(ct);
+        var returnsBySaleItem = returns.GroupBy(x => x.SaleItemId)
+            .ToDictionary(group => group.Key, group => (Quantity: group.Sum(x => x.Quantity), Refund: group.Sum(x => x.Refund)));
         return rows.GroupBy(x => new { x.ProductId, x.ProductName }).Select(g =>
         {
-            var saleItemIds = g.Select(x => x.SaleItemId).ToHashSet();
-            var returned = returns.Where(x => saleItemIds.Contains(x.SaleItemId)).ToArray();
+            var returned = g.Select(x => returnsBySaleItem.GetValueOrDefault(x.SaleItemId)).ToArray();
             return new TopProductRow(g.Key.ProductId, g.Key.ProductName, g.Sum(x => x.Quantity) - returned.Sum(x => x.Quantity),
                 g.Sum(x => x.Total) - returned.Sum(x => x.Refund));
         }).Where(x => x.UnitsSold > 0).OrderByDescending(x => x.UnitsSold).ThenBy(x => x.ProductName).Take(take).ToArray();
+    }
+
+    public async Task<IReadOnlyList<SalesByProductRow>> GetSalesByProductAsync(int userId, DateOnly from, DateOnly through, CancellationToken ct = default)
+    {
+        await ServiceAuthorization.RequireAsync(db, userId, "Reports.View", ct);
+        var (start, end) = Range(from, through);
+        var sales = await (from item in db.SaleItems.AsNoTracking()
+                           join sale in db.Sales.AsNoTracking() on item.SaleId equals sale.Id
+                           join product in db.Products.AsNoTracking() on item.ProductId equals product.Id
+                           where sale.SoldAtUtc >= start && sale.SoldAtUtc < end && sale.Status != "Voided"
+                           select new { item.ProductId, ProductName = product.Name, item.Quantity, item.Total }).ToListAsync(ct);
+        var returns = await (from returned in db.ReturnItems.AsNoTracking()
+                             join ret in db.Returns.AsNoTracking() on returned.SaleReturnId equals ret.Id
+                             join saleItem in db.SaleItems.AsNoTracking() on returned.SaleItemId equals saleItem.Id
+                             join sale in db.Sales.AsNoTracking() on saleItem.SaleId equals sale.Id
+                             join product in db.Products.AsNoTracking() on saleItem.ProductId equals product.Id
+                             where ret.ReturnedAtUtc >= start && ret.ReturnedAtUtc < end && sale.Status != "Voided"
+                             select new { saleItem.ProductId, ProductName = product.Name, returned.Quantity, returned.Refund }).ToListAsync(ct);
+
+        var totals = new Dictionary<(int ProductId, string ProductName), (decimal UnitsSold, decimal Revenue)>();
+        foreach (var group in sales.GroupBy(x => (x.ProductId, x.ProductName)))
+            totals[group.Key] = (group.Sum(x => x.Quantity), group.Sum(x => x.Total));
+        foreach (var group in returns.GroupBy(x => (x.ProductId, x.ProductName)))
+        {
+            var current = totals.GetValueOrDefault(group.Key);
+            totals[group.Key] = (current.UnitsSold - group.Sum(x => x.Quantity), current.Revenue - group.Sum(x => x.Refund));
+        }
+        return totals.Where(x => x.Value.UnitsSold != 0 || x.Value.Revenue != 0)
+            .Select(x => new SalesByProductRow(x.Key.ProductId, x.Key.ProductName, x.Value.UnitsSold, x.Value.Revenue))
+            .OrderBy(x => x.ProductName).ThenBy(x => x.ProductId).ToArray();
     }
 
     public async Task<IReadOnlyList<DailyProfitPoint>> GetDailyProfitAsync(int userId, DateOnly from, DateOnly through, CancellationToken ct = default)
@@ -71,10 +103,11 @@ public sealed class ReportsService(PosDbContext db)
         var ids = sales.Select(s => s.Id).ToArray();
         var items = await db.SaleItems.AsNoTracking().Where(i => ids.Contains(i.SaleId))
             .Select(i => new { i.SaleId, i.Total, i.Tax, i.UnitCost, i.Quantity, i.Discount }).ToListAsync(ct);
+        var itemsBySale = items.GroupBy(item => item.SaleId).ToDictionary(group => group.Key, group => group.ToArray());
         var daily = sales.GroupBy(s => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(s.SoldAtUtc, TimeZoneInfo.Local)))
             .ToDictionary(day => day.Key, day => day.Sum(s =>
             {
-                var saleItems = items.Where(i => i.SaleId == s.Id).ToArray();
+                var saleItems = itemsBySale.GetValueOrDefault(s.Id) ?? [];
                 var billDiscount = Math.Max(0, s.Discount - saleItems.Sum(i => i.Discount));
                 return saleItems.Sum(i => i.Total - i.Tax - i.UnitCost * i.Quantity) - billDiscount;
             }));
@@ -85,10 +118,11 @@ public sealed class ReportsService(PosDbContext db)
             join item in db.SaleItems.AsNoTracking() on returned.SaleItemId equals item.Id
             where returnIds.Contains(returned.SaleReturnId)
             select new { returned.SaleReturnId, returned.Refund, returned.Quantity, QuantitySold = item.Quantity, item.Tax, item.UnitCost }).ToListAsync(ct);
+        var returnProfitReductions = returnedItems.GroupBy(item => item.SaleReturnId).ToDictionary(group => group.Key,
+            group => group.Sum(item => item.Refund - item.Tax * item.Quantity / item.QuantitySold - item.UnitCost * item.Quantity));
         foreach (var group in returns.GroupBy(r => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(r.ReturnedAtUtc, TimeZoneInfo.Local))))
         {
-            var idSet = group.Select(x => x.Id).ToHashSet();
-            var reduction = returnedItems.Where(x => idSet.Contains(x.SaleReturnId)).Sum(x => x.Refund - x.Tax * x.Quantity / x.QuantitySold - x.UnitCost * x.Quantity);
+            var reduction = group.Sum(x => returnProfitReductions.GetValueOrDefault(x.Id));
             daily[group.Key] = daily.GetValueOrDefault(group.Key) - reduction;
         }
         return daily.OrderBy(x => x.Key).Select(x => new DailyProfitPoint(x.Key, x.Value)).ToArray();
@@ -102,8 +136,20 @@ public sealed class ReportsService(PosDbContext db)
                            join user in db.Users.AsNoTracking() on sale.UserId equals user.Id
                            where sale.SoldAtUtc >= start && sale.SoldAtUtc < end && sale.Status != "Voided"
                            select new { sale.UserId, user.DisplayName, sale.GrandTotal }).ToListAsync(ct);
-        return sales.GroupBy(x => new { x.UserId, x.DisplayName }).Select(g => new CashierSalesRow(g.Key.DisplayName,
-            g.Sum(x => x.GrandTotal), g.Count())).OrderByDescending(x => x.Sales).ToArray();
+        var returns = await (from returned in db.Returns.AsNoTracking()
+                             join sale in db.Sales.AsNoTracking() on returned.SaleId equals sale.Id
+                             join user in db.Users.AsNoTracking() on sale.UserId equals user.Id
+                             where returned.ReturnedAtUtc >= start && returned.ReturnedAtUtc < end && sale.Status != "Voided"
+                             select new { sale.UserId, user.DisplayName, returned.Total }).ToListAsync(ct);
+        var totals = sales.GroupBy(x => new { x.UserId, x.DisplayName })
+            .ToDictionary(group => group.Key, group => (Sales: group.Sum(x => x.GrandTotal), Count: group.Count()));
+        foreach (var group in returns.GroupBy(x => new { x.UserId, x.DisplayName }))
+        {
+            var current = totals.GetValueOrDefault(group.Key);
+            totals[group.Key] = (current.Sales - group.Sum(x => x.Total), current.Count);
+        }
+        return totals.Select(x => new CashierSalesRow(x.Key.DisplayName, x.Value.Sales, x.Value.Count))
+            .OrderByDescending(x => x.Sales).ThenBy(x => x.CashierName).ToArray();
     }
 
     public async Task<IReadOnlyList<CustomerSalesRow>> GetSalesByCustomerAsync(int userId, DateOnly from, DateOnly through, CancellationToken ct = default)
@@ -112,10 +158,23 @@ public sealed class ReportsService(PosDbContext db)
         var (start, end) = Range(from, through);
         var sales = await db.Sales.AsNoTracking().Where(x => x.SoldAtUtc >= start && x.SoldAtUtc < end && x.Status != "Voided")
             .Select(x => new { x.Id, x.CustomerId, x.GrandTotal }).ToListAsync(ct);
-        var customerIds = sales.Where(x => x.CustomerId.HasValue).Select(x => x.CustomerId!.Value).Distinct().ToArray();
+        var returns = await (from returned in db.Returns.AsNoTracking()
+                             join sale in db.Sales.AsNoTracking() on returned.SaleId equals sale.Id
+                             where returned.ReturnedAtUtc >= start && returned.ReturnedAtUtc < end && sale.Status != "Voided"
+                             select new { sale.CustomerId, returned.Total }).ToListAsync(ct);
+        var customerIds = sales.Where(x => x.CustomerId.HasValue).Select(x => x.CustomerId!.Value)
+            .Concat(returns.Where(x => x.CustomerId.HasValue).Select(x => x.CustomerId!.Value)).Distinct().ToArray();
         var names = await db.Customers.AsNoTracking().Where(x => customerIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, x => x.Name, ct);
-        return sales.GroupBy(x => x.CustomerId).Select(g => new CustomerSalesRow(g.Key is int id ? names.GetValueOrDefault(id, "Unknown customer") : "Walk-in",
-            g.Sum(x => x.GrandTotal), g.Count())).OrderByDescending(x => x.Sales).ToArray();
+        var totals = sales.GroupBy(x => x.CustomerId ?? 0).ToDictionary(group => group.Key,
+            group => (Sales: group.Sum(x => x.GrandTotal), Count: group.Count()));
+        foreach (var group in returns.GroupBy(x => x.CustomerId ?? 0))
+        {
+            var current = totals.GetValueOrDefault(group.Key);
+            totals[group.Key] = (current.Sales - group.Sum(x => x.Total), current.Count);
+        }
+        return totals.Select(x => new CustomerSalesRow(x.Key != 0 ? names.GetValueOrDefault(x.Key, "Unknown customer") : "Walk-in",
+                x.Value.Sales, x.Value.Count))
+            .OrderByDescending(x => x.Sales).ThenBy(x => x.CustomerName).ToArray();
     }
 
     public async Task<IReadOnlyList<PurchaseDayPoint>> GetPurchasesByDayAsync(int userId, DateOnly from, DateOnly through, CancellationToken ct = default)
@@ -140,8 +199,20 @@ public sealed class ReportsService(PosDbContext db)
                                join supplier in db.Suppliers.AsNoTracking() on purchase.SupplierId equals supplier.Id
                                where purchase.PurchasedAtUtc >= start && purchase.PurchasedAtUtc < end && purchase.Status != "Voided"
                                select new { purchase.Id, purchase.SupplierId, supplier.Name, purchase.Total }).ToListAsync(ct);
-        return purchases.GroupBy(x => new { x.SupplierId, x.Name }).Select(g => new SupplierPurchaseRow(g.Key.Name, g.Sum(x => x.Total), g.Count()))
-            .OrderByDescending(x => x.Purchases).ToArray();
+        var returns = await (from returned in db.PurchaseReturns.AsNoTracking()
+                             join purchase in db.Purchases.AsNoTracking() on returned.PurchaseId equals purchase.Id
+                             join supplier in db.Suppliers.AsNoTracking() on purchase.SupplierId equals supplier.Id
+                             where returned.ReturnedAtUtc >= start && returned.ReturnedAtUtc < end && purchase.Status != "Voided"
+                             select new { purchase.SupplierId, supplier.Name, returned.Total }).ToListAsync(ct);
+        var totals = purchases.GroupBy(x => new { x.SupplierId, x.Name })
+            .ToDictionary(group => group.Key, group => (Purchases: group.Sum(x => x.Total), Count: group.Count()));
+        foreach (var group in returns.GroupBy(x => new { x.SupplierId, x.Name }))
+        {
+            var current = totals.GetValueOrDefault(group.Key);
+            totals[group.Key] = (current.Purchases - group.Sum(x => x.Total), current.Count);
+        }
+        return totals.Select(x => new SupplierPurchaseRow(x.Key.Name, x.Value.Purchases, x.Value.Count))
+            .OrderByDescending(x => x.Purchases).ThenBy(x => x.SupplierName).ToArray();
     }
 
     public async Task<IReadOnlyList<ExpenseReportRow>> GetExpensesAsync(int userId, DateOnly from, DateOnly through, CancellationToken ct = default)

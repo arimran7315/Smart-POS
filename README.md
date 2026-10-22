@@ -1,17 +1,19 @@
 # SmartPOS
 
-SmartPOS is an offline-first Windows desktop point-of-sale foundation built with C#, .NET 10 LTS, WPF, and SQLite. It is organized into Core, Infrastructure, App, and Tests projects so the business rules can be developed separately from storage and the desktop interface.
+SmartPOS is an offline-first Windows desktop point-of-sale foundation built with C#, .NET 10 LTS, WPF, and SQLite. Core owns domain rules, Application defines use-case contracts, Infrastructure implements persistence and workflows, and App hosts the desktop interface.
 
 > **Implementation status:** SmartPOS contains working offline workflows and checked-in SQLite migrations. It is not yet production-ready: additional report visualizations, test coverage, printer formats, backup/restore recovery, authorization coverage, and full shop operations still need broader verification.
 
 ## Implemented
 
 - Native WPF startup, first-run administrator creation, and a permission-aware dashboard sidebar with explicit sign-out.
-- BCrypt password hashing and login against active user accounts; signing out returns to the login screen, while closing the dashboard exits the app.
+- BCrypt password hashing and login against active user accounts; new hashes pre-hash UTF-8 passwords with SHA-256 to avoid BCrypt's 72-byte truncation, and existing raw BCrypt hashes upgrade after a successful login. Signing out returns to the login screen, while closing the dashboard exits the app.
+- Login and first-administrator submission show an indeterminate button loader with an in-progress label, and disable repeat submission until authentication completes.
 - Account sign-in lockout after five failed password attempts for 15 minutes, with failures recorded in the audit log.
 - SQLite database under `%LOCALAPPDATA%\SmartPOS\smartpos.db`.
 - EF Core entities, SQLite persistence, and an initial migration for products, categories, brands, sales, purchases, sale returns, users, customers, suppliers, payments, expenses, inventory movements, settings, and audit entries.
 - POS barcode/SKU/name lookup, duplicate scan quantity increments, stock-validated editable cart quantities, administrator-controlled item and bill discounts, live tax calculations, payment selection, and keyboard shortcuts.
+- POS cart line prices and checkout totals use the configured store currency.
 - POS product lookup, barcode/SKU/name scan handling, and ambiguous-match selection by SKU/barcode/price/stock are ViewModel commands; exact single matches add immediately, while unknown and out-of-stock scans report through bound status text. Remove, hold, resume, clear, cancel, new-sale, and complete-sale actions also use ViewModel commands. Enter/F-key focus handling and Windows printing remain view-specific.
 - Per-cashier held-sale storage, resume, and confirmed cancel controls, including customer, notes, item discount rates, and bill discount; completing a resumed sale removes the held record in the same transaction, and cancellations are audited.
 - Cash/card mixed tender checkout with separate payment records and exact invoice-total validation.
@@ -22,14 +24,20 @@ SmartPOS is an offline-first Windows desktop point-of-sale foundation built with
 - Purchase receiving supports per-line percentage discounts and tax, stores invoice/item discount and tax totals, updates stock movements, and sets product purchase cost to the discounted cost before input tax. Supplier returns refund the original net line value proportionally, including the exact remaining rounded balance on the final return.
 - Purchase invoices track paid, remaining, and payment status. Administrators can record an initial payment while receiving stock or partial/final payments later; each supplier payment is linked to the invoice and supplier ledger in the same transaction as the invoice balance update.
 - Sales returns that validate quantity against units sold and return stock.
+- Successful POS checkout shows a brief non-modal toast notification while retaining the persistent status message.
+- Async commands expose observable running state and reject duplicate execution; report refresh displays an indeterminate loading bar while queries run.
 - Supplier purchase returns with partial/full quantity validation, value history, stock deduction, audit entries, and a dedicated tab in the purchasing window.
 - Role-checked Infrastructure services for products, customers, suppliers (including company, contact details, and opening balances), expenses (including date, method, and notes), invoice and customer account receipts, administrator-only supplier and purchase invoice payments, user creation/deactivation, settings, reporting, and SQLite backup/restore.
-- Date-filtered reports for daily sales, cashier/customer sales, top products, daily profit, purchases by day/supplier, expenses, payments, returns, tax, stock movements, and customer/supplier ledgers with brought-forward balances and supplier payments. Inventory valuation estimates on-hand value using each active product's current purchase cost; the low-stock report lists active products at or below their configured minimum and shows the reorder quantity. Data-backed bar charts cover daily sales, sales by cashier, top products, daily profit, daily purchases, purchases by supplier, expenses by category, daily tax, and the top low-stock reorder quantities. Profit queries and charts are permission gated; report tables can be previewed and printed, or exported to CSV with spreadsheet-formula-like text neutralized.
+- Date-filtered reports for daily sales, sales by product, cashier/customer sales, top products, daily profit, purchases by day/supplier, expenses, payments, returns, tax, stock movements, and customer/supplier ledgers with brought-forward balances and supplier payments. Product sales are net of returns on their return dates, including returns of invoices from earlier periods. Cashier/customer sales and supplier purchase summaries also subtract returns on their return dates. Inventory valuation estimates on-hand value using each active product's current purchase cost; the low-stock report lists active products at or below their configured minimum and shows the reorder quantity. Data-backed bar charts cover daily sales, sales by cashier, top products, daily profit, daily purchases, purchases by supplier, expenses by category, daily tax, and the top low-stock reorder quantities. Profit queries and charts are permission gated; report tables can be previewed and printed, or exported to CSV with spreadsheet-formula-like text neutralized.
+- Quotations/estimates: build a customer quote with per-line discounts, bill discount, notes, and a validity date; search quotes by number, customer, or status; convert an open quote to a sale (cash/card/credit) which deducts stock and links the originating quote, or cancel an open quote. Quotes never affect stock until converted.
+- Cashier shift and cash-drawer control: open a shift with a cash float, view live shift totals (X report) covering sales count, gross, cash/card/credit split, refunds, and cash expenses, and close the shift (Z report) by counting the drawer to record the expected cash, counted cash, and variance. Managers and administrators can review any cashier's shift; cashiers see only their own.
+- Expenses can be edited and deleted (with confirmation), not only created, and every change is audited.
+- Searchable lists throughout the operations window (customers, suppliers, expenses, users, activity log, and credit payments), the outstanding supplier invoices list, and the customer/supplier ledgers; the POS customer picker and purchase supplier/product/invoice pickers are type-to-filter. Filtering a customer or supplier ledger and printing produces a per-account statement.
 - Provider selection through `appsettings.json`; SQLite is the default and SQL Server can be selected through a protected connection string override.
-- Sale arithmetic and role permission rule unit tests, plus parallel SQLite workflow tests for unique sale/purchase invoices, customer credit-limit enforcement, concurrent customer account receipts, user administrator safety, and serialized failed-login lockouts.
+- Sale arithmetic tests and an explicit Administrator/Manager/Cashier/Inventory Manager permission matrix, plus parallel SQLite workflow tests for unique sale/purchase invoices, customer credit-limit enforcement, concurrent customer account receipts, user administrator safety, serialized failed-login lockouts, and end-to-end stock-movement reconciliation across opening stock, purchases, sales, returns, and adjustments.
 - SQL Server EF Core provider reference for a future provider configuration.
 
-Receipt and Code 128 barcode label printing use the Windows print dialog by default. Set `ReceiptPrintMode` to `EscPos` and `DefaultPrinter` to an installed printer queue to send raw ESC/POS receipts directly through the Windows spooler; any other `ReceiptPrintMode` value keeps the print-dialog flow. ESC/POS output supports common initialization, alignment, bold, line feed, and cutter commands and emits portable ASCII (accented text is transliterated; unsupported characters become `?`). Receipt layout accepts 58 mm or 80 mm roll settings and includes the configured store tax number and selected customer. A compatible ESC/POS printer/driver and matching media are required; physical printer layouts and cutter behavior have not been verified.
+Receipt and Code 128 barcode label printing use the Windows print dialog by default. Set `ReceiptPrintMode` to `EscPos` and `DefaultPrinter` to an installed printer queue to send raw ESC/POS receipts directly through the Windows spooler; any other `ReceiptPrintMode` value keeps the print-dialog flow. ESC/POS output supports common initialization, alignment, bold, line feed, and cutter commands and emits portable ASCII (accented text is transliterated; unsupported characters become `?`). Receipt layout accepts 58 mm or 80 mm roll settings, includes the configured store tax number and selected customer, and lists separate cash/card amounts for mixed-tender sales. A compatible ESC/POS printer/driver and matching media are required; physical printer layouts and cutter behavior have not been verified.
 
 The dashboard links to an operations window for customer and supplier records, expense entry, invoice and customer account receipts, administrator-only supplier payments, configurable store/invoice settings, database backup/restore, user/role management, and activity history. Purchase receiving, sales/returns, reports, products, POS, dashboard, receipts, and barcode labels each have screens. Customer and supplier forms include contact information and opening balances; customer opening debt is counted against the configured credit limit. Once account activity begins, opening balances are locked so edits cannot rewrite ledger history. Categories and brands can be created, renamed, and soft-deactivated from product management; deactivation preserves links from existing products and writes an audit entry. Backup creation validates a temporary copy before replacing the destination. Restore validates SQLite integrity, foreign-key references, and known migration history before making a safety copy and replacing the live database; restart SmartPOS after restore.
 
@@ -60,7 +68,7 @@ SQL Server has checked-in migrations and provider discovery tests, but live-serv
 2. Restore NuGet packages.
 3. Build the solution for `net10.0-windows` on Windows.
 4. Run `SmartPOS.App`.
-5. On the first run, create the administrator username, display name, and password. Passwords must be at least 12 characters. Later runs show the login screen.
+5. On the first run, create the administrator username, display name, and password. Passwords must be at least 8 characters. Later runs show the login screen.
 
 CLI commands from the repository root:
 
@@ -123,6 +131,7 @@ Administrator, Manager, Cashier, and Inventory Manager roles are defined in Core
 
 ```text
 src/SmartPOS.Core              Domain entities and deterministic business rules
+src/SmartPOS.Application       Use-case contracts consumed by the desktop UI
 src/SmartPOS.Infrastructure    EF Core context, SQLite persistence, security, workflows, raw Windows printer transport
 src/SmartPOS.App               WPF startup, views, view models, and printer adapters
 tests/SmartPOS.Tests           Unit and SQLite workflow/migration tests

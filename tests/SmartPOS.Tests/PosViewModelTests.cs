@@ -33,6 +33,31 @@ public sealed class PosViewModelTests
     }
 
     [Fact]
+    public async Task ConfiguredCurrencyIsShownOnCheckoutAndCartAmounts()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var options = new DbContextOptionsBuilder<PosDbContext>().UseSqlite(connection).Options;
+        await using var db = new PosDbContext(options);
+        await db.Database.EnsureCreatedAsync();
+        var cashier = new AppUser { UserName = "currency-cashier", DisplayName = "Cashier", PasswordHash = "hash", Role = "Cashier" };
+        db.Users.Add(cashier);
+        db.Settings.Add(new AppSetting { Key = "Currency", Value = "PKR" });
+        await db.SaveChangesAsync();
+        var viewModel = CreateViewModel(db, cashier);
+
+        await viewModel.InitializeAsync("SmartPOS");
+        viewModel.AddProduct(new SaleProductLookup(1, "Milk", 200, 5, 0, 10));
+
+        Assert.Equal("PKR 200.00", viewModel.FormattedSubtotal);
+        Assert.Equal("PKR 210.00", viewModel.FormattedGrandTotal);
+        Assert.Equal("PKR 200.00", viewModel.CartLines.Single().FormattedUnitPrice);
+        Assert.Equal("PKR 210.00", viewModel.CartLines.Single().FormattedLineTotal);
+        viewModel.CartLines.Single().Quantity = 2;
+        Assert.Equal("PKR 420.00", viewModel.CartLines.Single().FormattedLineTotal);
+    }
+
+    [Fact]
     public async Task ProductSearchCommandAddsUniqueMatchAndRequiresSelectionForAmbiguousNames()
     {
         await using var connection = new SqliteConnection("Data Source=:memory:");
@@ -136,11 +161,19 @@ public sealed class PosViewModelTests
         Assert.Equal(20m, viewModel.TaxTotal);
         Assert.Equal(420m, viewModel.GrandTotal);
         Assert.True(viewModel.CanComplete);
+        Assert.False(viewModel.IsMixedPayment);
+        var mixedPaymentStateNotified = false;
+        viewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(PosViewModel.IsMixedPayment)) mixedPaymentStateNotified = true;
+        };
 
         viewModel.PaymentMethod = "Cash";
         viewModel.PaidText = "450";
         Assert.Equal("Change: 30.00", viewModel.ChangeSummary);
         viewModel.PaymentMethod = "Mixed";
+        Assert.True(viewModel.IsMixedPayment);
+        Assert.True(mixedPaymentStateNotified);
         viewModel.MixedCashText = "200";
         viewModel.MixedCardText = "220";
         Assert.Equal("Remaining: 0.00", viewModel.ChangeSummary);
@@ -228,6 +261,8 @@ public sealed class PosViewModelTests
         var viewModel = CreateViewModel(db, cashier);
         Assert.Equal("", viewModel.AddProduct(new SaleProductLookup(product.Id, product.Name, product.SalePrice, product.TaxRate, 0, product.CurrentStock)));
         viewModel.PaidText = "105";
+        string? notification = null;
+        viewModel.SaleCompleted += message => notification = message;
 
         await viewModel.CompleteSaleCommand.ExecuteAsync();
 
@@ -238,6 +273,7 @@ public sealed class PosViewModelTests
         Assert.Equal(3m, product.CurrentStock);
         Assert.Equal(1, await db.Sales.CountAsync());
         Assert.Contains(viewModel.LastSale.InvoiceNumber, viewModel.StatusMessage);
+        Assert.Equal(viewModel.StatusMessage, notification);
     }
 
     private static PosViewModel CreateViewModel(PosDbContext db, AppUser user) =>

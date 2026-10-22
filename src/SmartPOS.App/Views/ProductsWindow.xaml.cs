@@ -7,6 +7,7 @@ using System.Globalization;
 using Microsoft.Win32;
 using System.IO;
 using System.Windows.Media.Imaging;
+using SmartPOS.UseCases.Catalog;
 
 namespace SmartPOS.App.Views;
 
@@ -14,9 +15,9 @@ public partial class ProductsWindow : Window
 {
     private readonly ProductsViewModel _viewModel;
     private readonly BarcodeLabelPrinter _barcodePrinter = new();
-    public ProductsWindow(ProductService products, InventoryService inventory, CatalogTaxonomyService taxonomy, AppUser user)
+    public ProductsWindow(IProductCatalogService products, IInventoryManagementService inventory, ICatalogTaxonomyService taxonomy, AppUser user)
     {
-        InitializeComponent(); Title = $"{SmartPosIdentity.Name} | Products"; _viewModel = new ProductsViewModel(products, inventory, taxonomy, user.Id, user.Role, new WpfUserConfirmationService(this)); DataContext = _viewModel;
+        InitializeComponent(); WindowLayout.FitToWorkArea(this); Title = $"{SmartPosIdentity.Name} | Products"; _viewModel = new ProductsViewModel(products, inventory, taxonomy, user.Id, user.Role, new WpfUserConfirmationService(this)); DataContext = _viewModel;
         _viewModel.PropertyChanged += (_, args) => { if (args.PropertyName == nameof(ProductsViewModel.SelectedProduct)) UpdateProductImagePreview(); };
         Loaded += async (_, _) => await _viewModel.InitializeAsync();
         ProductGrid.SelectionChanged += (_, _) => UpdateProductImagePreview();

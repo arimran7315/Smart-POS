@@ -4,6 +4,7 @@ using System.Data;
 using SmartPOS.Core.Entities;
 using SmartPOS.Core.Services;
 using SmartPOS.Infrastructure.Data;
+using SmartPOS.UseCases.Catalog;
 using SmartPOS.Infrastructure.Security;
 
 namespace SmartPOS.Infrastructure.Services;
@@ -114,6 +115,46 @@ public sealed class ExpenseService(PosDbContext db)
         db.Expenses.Add(expense); await db.SaveChangesAsync(ct);
         db.AuditEntries.Add(new AuditEntry { UserId = userId, Action = "Create", EntityName = "Expense", EntityId = expense.Id.ToString(), Description = $"Recorded expense {expense.Amount}." });
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return expense;
+    }
+
+    public async Task<Expense> UpdateAsync(int expenseId, string description, string category, decimal amount, int userId, CancellationToken ct = default,
+        string paymentMethod = "Cash", string? notes = null, DateOnly? spentOn = null)
+    {
+        await ServiceAuthorization.RequireAsync(db, userId, "Expenses.Manage", ct);
+        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+        description = description.Trim();
+        category = string.IsNullOrWhiteSpace(category) ? "General" : category.Trim();
+        notes = ServiceInputValidation.NormalizeOptional(notes);
+        ServiceInputValidation.RequireMaxLength(description, "Expense description", 250);
+        ServiceInputValidation.RequireMaxLength(category, "Expense category", 100);
+        ServiceInputValidation.RequireMaxLength(notes, "Expense notes", 1000);
+        if (amount <= 0) throw new ArgumentOutOfRangeException(nameof(amount), "Expense amount must be positive.");
+        ServiceInputValidation.RequireDecimalScale(amount, "Expense amount");
+        if (!new[] { "Cash", "Card", "Bank transfer" }.Contains(paymentMethod, StringComparer.OrdinalIgnoreCase))
+            throw new PosRuleException("Choose Cash, Card, or Bank transfer as the expense payment method.");
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var expense = await db.Expenses.SingleOrDefaultAsync(x => x.Id == expenseId, ct)
+            ?? throw new PosRuleException("This expense no longer exists.");
+        if (spentOn is not null)
+        {
+            var localDate = spentOn.Value.ToDateTime(new TimeOnly(12, 0));
+            expense.SpentAtUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(localDate, DateTimeKind.Unspecified), TimeZoneInfo.Local);
+        }
+        expense.Description = description; expense.Category = category; expense.Amount = amount;
+        expense.PaymentMethod = paymentMethod; expense.Notes = notes; expense.UpdatedAtUtc = DateTime.UtcNow;
+        db.AuditEntries.Add(new AuditEntry { UserId = userId, Action = "Update", EntityName = "Expense", EntityId = expense.Id.ToString(), Description = $"Updated expense {expense.Amount}." });
+        await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return expense;
+    }
+
+    public async Task DeleteAsync(int expenseId, int userId, CancellationToken ct = default)
+    {
+        await ServiceAuthorization.RequireAsync(db, userId, "Expenses.Manage", ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var expense = await db.Expenses.SingleOrDefaultAsync(x => x.Id == expenseId, ct)
+            ?? throw new PosRuleException("This expense no longer exists.");
+        db.Expenses.Remove(expense);
+        db.AuditEntries.Add(new AuditEntry { UserId = userId, Action = "Delete", EntityName = "Expense", EntityId = expenseId.ToString(), Description = $"Deleted expense {expense.Amount} ({expense.Category})." });
+        await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
     }
 }
 
@@ -387,7 +428,7 @@ public sealed class AuditService(PosDbContext db)
     }
 }
 
-public sealed class CatalogTaxonomyService(PosDbContext db)
+public sealed class CatalogTaxonomyService(PosDbContext db) : ICatalogTaxonomyService
 {
     public async Task<Category> SaveCategoryAsync(Category category, int userId, CancellationToken ct = default)
     {

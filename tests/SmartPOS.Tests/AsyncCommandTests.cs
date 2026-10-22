@@ -6,27 +6,33 @@ namespace SmartPOS.Tests;
 public sealed class AsyncCommandTests
 {
     [Fact]
-    public async Task ExecuteAsync_ReportsFailureAndReenablesCommand()
+    public async Task IsRunningSignalsStartAndFinishAndBlocksConcurrentExecution()
     {
-        var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var failure = new InvalidOperationException("The operation failed.");
-        Exception? reported = null;
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var executions = 0;
         var command = new AsyncCommand(async () =>
         {
-            started.SetResult(true);
-            await release.Task;
-            throw failure;
-        }, onError: exception => reported = exception);
+            executions++;
+            await completion.Task;
+        });
+        var runningChanged = new List<bool>();
+        command.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(command.IsRunning)) runningChanged.Add(command.IsRunning);
+        };
 
         var execution = command.ExecuteAsync();
-        await started.Task;
 
+        Assert.True(command.IsRunning);
         Assert.False(command.CanExecute(null));
-        release.SetResult(true);
+        await command.ExecuteAsync();
+        Assert.Equal(1, executions);
+
+        completion.SetResult();
         await execution;
 
-        Assert.Same(failure, reported);
+        Assert.False(command.IsRunning);
         Assert.True(command.CanExecute(null));
+        Assert.Equal(new[] { true, false }, runningChanged);
     }
 }

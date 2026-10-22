@@ -3,11 +3,11 @@ using System.Runtime.CompilerServices;
 using SmartPOS.App.Services;
 using SmartPOS.Core.Entities;
 using SmartPOS.Infrastructure.Security;
-using SmartPOS.Infrastructure.Services;
+using SmartPOS.UseCases.Authentication;
 
 namespace SmartPOS.App.ViewModels;
 
-public sealed class LoginViewModel(AuthenticationService authentication) : INotifyPropertyChanged
+public sealed class LoginViewModel(IAuthenticationService authentication) : INotifyPropertyChanged
 {
     private bool _setupRequired;
     private bool _isBusy;
@@ -18,11 +18,22 @@ public sealed class LoginViewModel(AuthenticationService authentication) : INoti
     private string _userName = "";
     private string _displayName = "";
 
-    public bool SetupRequired { get => _setupRequired; private set { _setupRequired = value; Changed(); } }
-    public bool IsBusy { get => _isBusy; private set { _isBusy = value; Changed(); Changed(nameof(CanSubmit)); } }
+    public bool SetupRequired { get => _setupRequired; private set { _setupRequired = value; Changed(); Changed(nameof(ButtonText)); } }
+    public bool IsBusy
+    {
+        get => _isBusy;
+        private set
+        {
+            _isBusy = value;
+            Changed();
+            Changed(nameof(CanSubmit));
+            Changed(nameof(ButtonText));
+        }
+    }
     public bool CanSubmit { get => _canSubmit && !IsBusy; private set { _canSubmit = value; Changed(); } }
     public string ModeText { get => _modeText; private set { _modeText = value; Changed(); } }
-    public string SubmitText { get => _submitText; private set { _submitText = value; Changed(); } }
+    public string SubmitText { get => _submitText; private set { _submitText = value; Changed(); Changed(nameof(ButtonText)); } }
+    public string ButtonText => IsBusy ? (SetupRequired ? "Creating account…" : "Signing in…") : SubmitText;
     public string Status { get => _status; private set { _status = value; Changed(); } }
     public string UserName { get => _userName; set { _userName = value; Changed(); } }
     public string DisplayName { get => _displayName; set { _displayName = value; Changed(); } }
