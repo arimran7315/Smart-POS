@@ -53,7 +53,7 @@ public sealed class AsyncCommand(Func<Task> execute, Func<bool>? canExecute = nu
         var application = Application.Current;
         if (application is null) return;
 
-        void ShowMessage() => MessageBox.Show(application.MainWindow, message, SmartPosIdentity.Name,
+        void ShowMessage() => ThemedMessageBox.Show(application.MainWindow, message, SmartPosIdentity.Name,
             MessageBoxButton.OK, MessageBoxImage.Warning);
 
         if (application.Dispatcher.CheckAccess()) ShowMessage();

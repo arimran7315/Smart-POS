@@ -76,9 +76,9 @@ public partial class BackOfficeWindow : Window
         try
         {
             await _backup.CreateBackupAsync(dialog.FileName, _user.Id);
-            await _settingsViewModel.LoadAsync(); MessageBox.Show("Database backup created.", "Backup", MessageBoxButton.OK, MessageBoxImage.Information);
+            await _settingsViewModel.LoadAsync(); ThemedMessageBox.Show("Database backup created.", "Backup", MessageBoxButton.OK, MessageBoxImage.Information);
         }
-        catch (Exception ex) { MessageBox.Show(UserErrorHandler.GetMessage(ex, "Creating the database backup"), "Backup failed", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch (Exception ex) { ThemedMessageBox.Show(UserErrorHandler.GetMessage(ex, "Creating the database backup"), "Backup failed", MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
     private async void RestoreBackup_Click(object sender, RoutedEventArgs e)
     {
@@ -86,12 +86,12 @@ public partial class BackOfficeWindow : Window
             InitialDirectory = !string.IsNullOrWhiteSpace(_settingsViewModel.BackupLocation) && Directory.Exists(_settingsViewModel.BackupLocation)
                 ? _settingsViewModel.BackupLocation : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) };
         if (dialog.ShowDialog(this) != true) return;
-        if (MessageBox.Show($"Restore this database backup? A safety copy of the current database will be created first. Restart {SmartPosIdentity.Name} after the restore.", "Confirm restore", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        if (ThemedMessageBox.Show($"Restore this database backup? A safety copy of the current database will be created first. Restart {SmartPosIdentity.Name} after the restore.", "Confirm restore", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
         try
         {
             await _backup.RestoreAsync(dialog.FileName, _user.Id);
-            MessageBox.Show($"Backup restored. Close and restart {SmartPosIdentity.Name} to refresh the active session.", "Restore complete", MessageBoxButton.OK, MessageBoxImage.Information);
+            ThemedMessageBox.Show($"Backup restored. Close and restart {SmartPosIdentity.Name} to refresh the active session.", "Restore complete", MessageBoxButton.OK, MessageBoxImage.Information);
         }
-        catch (Exception ex) { MessageBox.Show(UserErrorHandler.GetMessage(ex, "Restoring the database"), "Restore failed", MessageBoxButton.OK, MessageBoxImage.Error); }
+        catch (Exception ex) { ThemedMessageBox.Show(UserErrorHandler.GetMessage(ex, "Restoring the database"), "Restore failed", MessageBoxButton.OK, MessageBoxImage.Error); }
     }
 }

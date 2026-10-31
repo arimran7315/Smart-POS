@@ -85,6 +85,19 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        // Show a branded splash immediately so launching feels responsive while the host
+        // starts and the database migrates, with a busy cursor like other desktop apps.
+        var splash = new SplashScreen("Assets/Splash.png");
+        splash.Show(autoClose: false, topMost: true);
+        System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.AppStarting;
+        var splashClosed = false;
+        void CloseSplash()
+        {
+            if (splashClosed) return;
+            splashClosed = true;
+            System.Windows.Input.Mouse.OverrideCursor = null;
+            splash.Close(TimeSpan.FromMilliseconds(300));
+        }
         try
         {
             var defaultApplicationName = _host.Services.GetRequiredService<IConfiguration>()["Application:Name"] ?? "SmartPOS";
@@ -105,6 +118,7 @@ public partial class App : Application
                 var applicationName = Convert.ToString(Resources["AppName"]) ?? "SmartPOS";
                 var login = new LoginWindow(_scope.ServiceProvider.GetRequiredService<IAuthenticationService>())
                 { Title = $"{applicationName} | Sign in" };
+                CloseSplash();
                 if (login.ShowDialog() != true) { Shutdown(); return; }
 
                 _activeUserId = login.CurrentUser!.Id;
@@ -129,6 +143,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
+            CloseSplash();
             var applicationName = SmartPosIdentity.Name;
             Log.Fatal(ex, "{ApplicationName} failed during startup", applicationName);
             MessageBox.Show($"{applicationName} could not start. Check the application log under {SmartPosPaths.LogsDirectory} for details.",

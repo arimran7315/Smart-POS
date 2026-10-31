@@ -17,6 +17,10 @@ public partial class DashboardWindow : Window
     private readonly AppUser _user;
     private readonly DashboardViewModel _viewModel;
     public bool IsSigningOut { get; private set; }
+    private bool _sidebarCollapsed;
+    private bool _sidebarManuallySet;
+    private const double SidebarExpandedWidth = 224;
+    private const double SidebarCollapsedWidth = 74;
     public DashboardWindow(DashboardService dashboard, AppUser user, IServiceScopeFactory scopeFactory)
     {
         InitializeComponent();
@@ -27,6 +31,12 @@ public partial class DashboardWindow : Window
             if (Math.Abs(e.NewSize.Width - e.PreviousSize.Width) > 0.5)
                 ApplyResponsiveLayout(e.NewSize.Width);
         };
+        SizeChanged += (_, e) =>
+        {
+            if (Math.Abs(e.NewSize.Width - e.PreviousSize.Width) > 0.5)
+                AutoAdjustSidebar();
+        };
+        Loaded += (_, _) => AutoAdjustSidebar();
         UserInfo.Text = $"{user.DisplayName} · {user.Role}"; _viewModel = new DashboardViewModel(dashboard, user.Id, user.Role); DataContext = _viewModel;
         PosNavButton.Visibility = Permissions.Has(_user.Role, "Sales.Create") ? Visibility.Visible : Visibility.Collapsed;
         ProductsNavButton.Visibility = Permissions.Has(_user.Role, "Products.Manage") ? Visibility.Visible : Visibility.Collapsed;
@@ -57,7 +67,7 @@ public partial class DashboardWindow : Window
             ? availableWidth
             : DashboardContent.ActualWidth > 0
                 ? DashboardContent.ActualWidth
-                : Math.Max(0, Width - 205 - 44 - 32);
+                : Math.Max(0, Width - SidebarColumn.Width.Value - 48);
         var metricColumns = width < 620 ? 1 : width < 900 ? 2 : width < 1500 ? 3 : 4;
         LayoutCards(MetricsGrid,
             [SalesMetricCard, PurchasesMetricCard, ProfitMetricCard, ExpensesMetricCard,
@@ -86,11 +96,50 @@ public partial class DashboardWindow : Window
             Grid.SetRow(visibleCards[index], index / columns);
         }
     }
+    private void SidebarToggle_Click(object sender, RoutedEventArgs e)
+    {
+        _sidebarManuallySet = true;
+        SetSidebarCollapsed(!_sidebarCollapsed);
+    }
+
+    // Collapse the sidebar automatically on narrow windows, unless the user has toggled it manually.
+    private void AutoAdjustSidebar()
+    {
+        if (_sidebarManuallySet) return;
+        SetSidebarCollapsed(ActualWidth < 1000);
+    }
+
+    private void SetSidebarCollapsed(bool collapsed)
+    {
+        _sidebarCollapsed = collapsed;
+        SidebarColumn.Width = new GridLength(collapsed ? SidebarCollapsedWidth : SidebarExpandedWidth);
+        var labelVisibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+        foreach (var label in FindLabelTextBlocks(Sidebar))
+            label.Visibility = labelVisibility;
+        BrandLogo.Visibility = labelVisibility;
+        BrandText.Visibility = labelVisibility;
+        WorkspaceHeader.Visibility = labelVisibility;
+        SidebarToggle.HorizontalAlignment = collapsed ? HorizontalAlignment.Center : HorizontalAlignment.Right;
+        SidebarToggle.ToolTip = collapsed ? "Expand menu" : "Collapse menu";
+        PosNavStack.HorizontalAlignment = collapsed ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+    }
+
+    private static IEnumerable<TextBlock> FindLabelTextBlocks(DependencyObject root)
+    {
+        var count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is TextBlock { Tag: "label" } label) yield return label;
+            foreach (var nested in FindLabelTextBlocks(child)) yield return nested;
+        }
+    }
+
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await _viewModel.RefreshAsync(Permissions.Has(_user.Role, "Reports.Profit"));
     private async void Operations_Click(object sender, RoutedEventArgs e)
     {
         if (!DashboardAccessPolicy.CanOpenOperations(_user.Role))
-        { MessageBox.Show("Your role cannot access business operations.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+        { ThemedMessageBox.Show("Your role cannot access business operations.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
         using (var scope = _scopeFactory.CreateScope())
         {
             var services = scope.ServiceProvider;
@@ -106,7 +155,7 @@ public partial class DashboardWindow : Window
     }
     private async void Sales_Click(object sender, RoutedEventArgs e)
     {
-        if (!Permissions.Has(_user.Role, "Sales.View")) { MessageBox.Show("Your role cannot view sales.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+        if (!Permissions.Has(_user.Role, "Sales.View")) { ThemedMessageBox.Show("Your role cannot view sales.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
         using (var scope = _scopeFactory.CreateScope())
             new SalesHistoryWindow(scope.ServiceProvider.GetRequiredService<SaleService>(),
                 scope.ServiceProvider.GetRequiredService<ReturnsService>(), _user,
@@ -115,7 +164,7 @@ public partial class DashboardWindow : Window
     }
     private async void Purchase_Click(object sender, RoutedEventArgs e)
     {
-        if (!Permissions.Has(_user.Role, "Purchases.Manage") && !Permissions.Has(_user.Role, "Purchases.Return")) { MessageBox.Show("Your role cannot access purchases.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+        if (!Permissions.Has(_user.Role, "Purchases.Manage") && !Permissions.Has(_user.Role, "Purchases.Return")) { ThemedMessageBox.Show("Your role cannot access purchases.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
         using (var scope = _scopeFactory.CreateScope())
         {
             var services = scope.ServiceProvider;
@@ -127,7 +176,7 @@ public partial class DashboardWindow : Window
     }
     private async void Quotations_Click(object sender, RoutedEventArgs e)
     {
-        if (!Permissions.Has(_user.Role, "Sales.Quote")) { MessageBox.Show("Your role cannot manage quotations.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+        if (!Permissions.Has(_user.Role, "Sales.Quote")) { ThemedMessageBox.Show("Your role cannot manage quotations.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
         using (var scope = _scopeFactory.CreateScope())
         {
             var services = scope.ServiceProvider;
@@ -138,21 +187,21 @@ public partial class DashboardWindow : Window
     }
     private async void Shift_Click(object sender, RoutedEventArgs e)
     {
-        if (!Permissions.Has(_user.Role, "Shift.Manage")) { MessageBox.Show("Your role cannot manage shifts.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+        if (!Permissions.Has(_user.Role, "Shift.Manage")) { ThemedMessageBox.Show("Your role cannot manage shifts.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
         using (var scope = _scopeFactory.CreateScope())
             new ShiftWindow(scope.ServiceProvider.GetRequiredService<ShiftService>(), _user) { Owner = this }.ShowDialog();
         await _viewModel.RefreshAsync(Permissions.Has(_user.Role, "Reports.Profit"));
     }
     private async void Reports_Click(object sender, RoutedEventArgs e)
     {
-        if (!Permissions.Has(_user.Role, "Reports.View")) { MessageBox.Show("Your role cannot view reports.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+        if (!Permissions.Has(_user.Role, "Reports.View")) { ThemedMessageBox.Show("Your role cannot view reports.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
         using (var scope = _scopeFactory.CreateScope())
             new ReportsWindow(scope.ServiceProvider.GetRequiredService<ReportsService>(), _user) { Owner = this }.ShowDialog();
         await _viewModel.RefreshAsync(Permissions.Has(_user.Role, "Reports.Profit"));
     }
     private async void Products_Click(object sender, RoutedEventArgs e)
     {
-        if (!Permissions.Has(_user.Role, "Products.Manage")) { MessageBox.Show("Your role cannot manage products.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+        if (!Permissions.Has(_user.Role, "Products.Manage")) { ThemedMessageBox.Show("Your role cannot manage products.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
         using (var scope = _scopeFactory.CreateScope())
         {
             var services = scope.ServiceProvider;
@@ -163,7 +212,7 @@ public partial class DashboardWindow : Window
     }
     private async void Pos_Click(object sender, RoutedEventArgs e)
     {
-        if (!Permissions.Has(_user.Role, "Sales.Create")) { MessageBox.Show("Your role cannot create sales.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+        if (!Permissions.Has(_user.Role, "Sales.Create")) { ThemedMessageBox.Show("Your role cannot create sales.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
         using (var scope = _scopeFactory.CreateScope())
         {
             var services = scope.ServiceProvider;
@@ -176,7 +225,7 @@ public partial class DashboardWindow : Window
     }
     private void SignOut_Click(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show($"Sign out and close {SmartPosIdentity.Name}?", "Sign out", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+        if (ThemedMessageBox.Show($"Sign out and close {SmartPosIdentity.Name}?", "Sign out", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
         {
             IsSigningOut = true;
             Close();

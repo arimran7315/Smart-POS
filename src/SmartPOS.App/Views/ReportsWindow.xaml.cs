@@ -32,9 +32,9 @@ public partial class ReportsWindow : Window
     {
         var grid = GetSelectedReportGrid();
         if (grid is null)
-        { MessageBox.Show("Select a report table before exporting.", "Export report", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+        { ThemedMessageBox.Show("Select a report table before exporting.", "Export report", MessageBoxButton.OK, MessageBoxImage.Information); return; }
         var rows = grid.Items.Cast<object>().ToArray();
-        if (rows.Length == 0) { MessageBox.Show("There are no report rows to export.", "Export report", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+        if (rows.Length == 0) { ThemedMessageBox.Show("There are no report rows to export.", "Export report", MessageBoxButton.OK, MessageBoxImage.Information); return; }
         var properties = rows[0].GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public).Where(x => x.CanRead).ToArray();
         var dialog = new SaveFileDialog { Filter = "CSV files (*.csv)|*.csv", DefaultExt = ".csv", AddExtension = true, FileName = $"smartpos-report-{DateTime.Today:yyyy-MM-dd}.csv" };
         if (dialog.ShowDialog(this) != true) return;
@@ -47,17 +47,17 @@ public partial class ReportsWindow : Window
                     Convert.ToString(property.GetValue(row), CultureInfo.InvariantCulture) ?? "", property.PropertyType == typeof(string)))));
             File.WriteAllText(dialog.FileName, csv.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
         }
-        catch (Exception ex) { MessageBox.Show(UserErrorHandler.GetMessage(ex, "Exporting the report"), "Export failed", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch (Exception ex) { ThemedMessageBox.Show(UserErrorHandler.GetMessage(ex, "Exporting the report"), "Export failed", MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
 
     private void PrintPreview_Click(object sender, RoutedEventArgs e)
     {
         var grid = GetSelectedReportGrid();
         if (grid is null)
-        { MessageBox.Show("Select a report table before opening print preview.", "Print preview", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+        { ThemedMessageBox.Show("Select a report table before opening print preview.", "Print preview", MessageBoxButton.OK, MessageBoxImage.Information); return; }
         var rows = grid.Items.Cast<object>().ToArray();
         if (rows.Length == 0)
-        { MessageBox.Show("There are no report rows to print.", "Print preview", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+        { ThemedMessageBox.Show("There are no report rows to print.", "Print preview", MessageBoxButton.OK, MessageBoxImage.Information); return; }
 
         try
         {
@@ -72,7 +72,7 @@ public partial class ReportsWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(UserErrorHandler.GetMessage(ex, "Preparing the report preview"), "Print preview failed",
+            ThemedMessageBox.Show(UserErrorHandler.GetMessage(ex, "Preparing the report preview"), "Print preview failed",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }

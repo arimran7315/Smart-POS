@@ -132,12 +132,12 @@ if ($Silent) {
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Border Grid.Column="0" Width="56" Height="56" CornerRadius="12" Background="#0284C7" Margin="0,0,16,0">
-                    <TextBlock Text="POS" FontSize="20" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Border Grid.Column="0" Width="58" Height="58" CornerRadius="14" Background="#0E7490" Margin="0,0,16,0">
+                    <Image x:Name="LogoImage" Width="40" Height="40" RenderOptions.BitmapScalingMode="HighQuality"/>
                 </Border>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="SmartPOS Setup" FontSize="22" FontWeight="Bold" Foreground="#38BDF8"/>
-                    <TextBlock Text="Fast &amp; Modern Point of Sale System" FontSize="13" Foreground="#94A3B8" Margin="0,2,0,0"/>
+                    <TextBlock Text="SmartPOS" FontSize="23" FontWeight="Bold" Foreground="#38BDF8"/>
+                    <TextBlock Text="Point of Sale &#8212; Setup" FontSize="13" Foreground="#94A3B8" Margin="0,2,0,0"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -184,6 +184,23 @@ $percentLabel = $window.FindName("PercentLabel")
 $progressBar = $window.FindName("InstallProgressBar")
 $launchCheckBox = $window.FindName("LaunchCheckBox")
 $finishButton = $window.FindName("FinishButton")
+$logoImage = $window.FindName("LogoImage")
+
+# Brand the setup window with the real application icon (header logo + taskbar/title icon).
+$setupIconPath = Join-Path $sourceDirectory $iconFile
+if (Test-Path -LiteralPath $setupIconPath -PathType Leaf) {
+    try {
+        $bitmap = New-Object System.Windows.Media.Imaging.BitmapImage
+        $bitmap.BeginInit()
+        $bitmap.CacheOption = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+        $bitmap.UriSource = New-Object System.Uri($setupIconPath)
+        $bitmap.DecodePixelWidth = 64
+        $bitmap.EndInit()
+        $bitmap.Freeze()
+        if ($logoImage) { $logoImage.Source = $bitmap }
+        $window.Icon = $bitmap
+    } catch { }
+}
 
 $finishButton.Add_Click({
     if ($launchCheckBox.IsChecked -and -not $SkipLaunch) {

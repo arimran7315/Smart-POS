@@ -44,7 +44,7 @@ public partial class PosWindow : Window
     {
         if (!Permissions.Has(_user.Role, "Products.Manage"))
         {
-            MessageBox.Show("Your role cannot manage products.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning);
+            ThemedMessageBox.Show("Your role cannot manage products.", "Permission denied", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
         new ProductsWindow(_products, _inventory, _taxonomy, _user) { Owner = this }.ShowDialog();
@@ -71,12 +71,12 @@ public partial class PosWindow : Window
                 catch (Exception ex)
                 {
                     var detail = UserErrorHandler.GetMessage(ex, "Recording the receipt print");
-                    MessageBox.Show($"The receipt was sent to the printer, but its activity entry could not be saved. Do not print again just because of this message. {detail}",
+                    ThemedMessageBox.Show($"The receipt was sent to the printer, but its activity entry could not be saved. Do not print again just because of this message. {detail}",
                         "Receipt sent; activity log failed", MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
             }
         }
-        catch (Exception ex) { MessageBox.Show(UserErrorHandler.GetMessage(ex, "Printing the receipt"), "Receipt printing failed", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch (Exception ex) { ThemedMessageBox.Show(UserErrorHandler.GetMessage(ex, "Printing the receipt"), "Receipt printing failed", MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
 
     private async void Window_PreviewKeyDown(object sender, KeyEventArgs e)

@@ -24,18 +24,18 @@ public partial class ProductsWindow : Window
     }
     private async void PrintBarcode_Click(object sender, RoutedEventArgs e)
     {
-        if (_viewModel.SelectedProduct is not { Id: > 0 } product) { MessageBox.Show("Save or select a product first."); return; }
-        if (!int.TryParse(LabelCopiesBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var copies)) { MessageBox.Show("Enter a valid label count."); return; }
+        if (_viewModel.SelectedProduct is not { Id: > 0 } product) { ThemedMessageBox.Show("Save or select a product first."); return; }
+        if (!int.TryParse(LabelCopiesBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var copies)) { ThemedMessageBox.Show("Enter a valid label count."); return; }
         try
         {
             if (_barcodePrinter.Print(this, product, copies))
                 await _viewModel.RecordBarcodeLabelsPrintedAsync(product.Id, copies);
         }
-        catch (Exception ex) { MessageBox.Show(UserErrorHandler.GetMessage(ex, "Printing barcode labels"), "Barcode label printing failed", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch (Exception ex) { ThemedMessageBox.Show(UserErrorHandler.GetMessage(ex, "Printing barcode labels"), "Barcode label printing failed", MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
     private void ChooseImage_Click(object sender, RoutedEventArgs e)
     {
-        if (_viewModel.SelectedProduct is null) { MessageBox.Show("Select or create a product first."); return; }
+        if (_viewModel.SelectedProduct is null) { ThemedMessageBox.Show("Select or create a product first."); return; }
         var picker = new OpenFileDialog
         {
             Title = "Choose product image",
@@ -61,7 +61,7 @@ public partial class ProductsWindow : Window
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or FormatException)
         {
-            MessageBox.Show(UserErrorHandler.GetMessage(ex, "Loading the product image"), "Product image", MessageBoxButton.OK, MessageBoxImage.Warning);
+            ThemedMessageBox.Show(UserErrorHandler.GetMessage(ex, "Loading the product image"), "Product image", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -90,7 +90,7 @@ public partial class ProductsWindow : Window
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or FormatException)
         {
-            MessageBox.Show(UserErrorHandler.GetMessage(ex, "Displaying the product image"), "Product image", MessageBoxButton.OK, MessageBoxImage.Warning);
+            ThemedMessageBox.Show(UserErrorHandler.GetMessage(ex, "Displaying the product image"), "Product image", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 }

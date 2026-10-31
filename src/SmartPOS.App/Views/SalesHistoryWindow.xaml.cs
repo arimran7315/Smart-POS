@@ -39,7 +39,7 @@ public partial class SalesHistoryWindow : Window
                 if (await _viewModel.RecordReceiptReprintedAsync(sale.Id))
                     _viewModel.ReportStatus($"Receipt reprinted for {receipt.Sale.InvoiceNumber}.");
                 else
-                    MessageBox.Show("The receipt was sent to the printer, but its activity entry could not be saved. Do not reprint because of this message; check the status for details.",
+                    ThemedMessageBox.Show("The receipt was sent to the printer, but its activity entry could not be saved. Do not reprint because of this message; check the status for details.",
                         "Receipt sent; activity log failed", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }

@@ -26,7 +26,7 @@ public partial class ReportPrintPreviewWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(UserErrorHandler.GetMessage(ex, "Printing the report"), "Print failed",
+            ThemedMessageBox.Show(UserErrorHandler.GetMessage(ex, "Printing the report"), "Print failed",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }

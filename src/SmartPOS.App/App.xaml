@@ -6,6 +6,10 @@
     <SolidColorBrush x:Key="Border" Color="#CBD5E1"/><SolidColorBrush x:Key="Danger" Color="#A23D3D"/>
     <SolidColorBrush x:Key="Warning" Color="#B45309"/><SolidColorBrush x:Key="Success" Color="#2E8B57"/>
     <SolidColorBrush x:Key="SuccessMuted" Color="#5A8B5A"/>
+    <SolidColorBrush x:Key="SidebarBackground" Color="#FFFFFF"/><SolidColorBrush x:Key="AccentSoft" Color="#DCEBF0"/>
+    <SolidColorBrush x:Key="NavHover" Color="#EAF1F4"/><SolidColorBrush x:Key="NavActive" Color="#CDE4EB"/>
+    <SolidColorBrush x:Key="DangerSoft" Color="#F7E6E6"/><SolidColorBrush x:Key="WarningSoft" Color="#F9EEDD"/>
+    <SolidColorBrush x:Key="SuccessSoft" Color="#E1F1E8"/><SolidColorBrush x:Key="Shadow" Color="#334155"/>
     <Style TargetType="Window">
       <Setter Property="Background" Value="{DynamicResource WindowBackground}"/>
       <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
@@ -102,5 +106,32 @@
     <Style TargetType="DatePicker"><Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
     <Style TargetType="ProgressBar"><Setter Property="Background" Value="{DynamicResource WindowBackground}"/><Setter Property="BorderBrush" Value="{DynamicResource Border}"/><Setter Property="Foreground" Value="{DynamicResource Accent}"/></Style>
     <Style TargetType="Separator"><Setter Property="Background" Value="{DynamicResource Border}"/><Setter Property="Opacity" Value="0.6"/></Style>
+    <!-- Sidebar navigation item: transparent, rounded, hover + active (set Tag="active") states with an accent rail -->
+    <Style x:Key="NavButton" TargetType="Button">
+      <Setter Property="Padding" Value="12,10"/><Setter Property="Margin" Value="0,2"/><Setter Property="FontSize" Value="14"/><Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="{DynamicResource SecondaryText}"/>
+      <Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Left"/><Setter Property="SnapsToDevicePixels" Value="True"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Grid>
+              <Border x:Name="root" CornerRadius="8" Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"/>
+              </Border>
+              <Border x:Name="bar" Width="3" HorizontalAlignment="Left" Margin="0,7" CornerRadius="2" Background="{DynamicResource Accent}" Visibility="Collapsed"/>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="root" Property="Background" Value="{DynamicResource NavHover}"/><Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/></Trigger>
+              <Trigger Property="Tag" Value="active">
+                <Setter TargetName="root" Property="Background" Value="{DynamicResource NavActive}"/>
+                <Setter TargetName="bar" Property="Visibility" Value="Visible"/>
+                <Setter Property="Foreground" Value="{DynamicResource Accent}"/><Setter Property="FontWeight" Value="SemiBold"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="root" Property="Opacity" Value="0.45"/><Setter Property="Cursor" Value="Arrow"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
   </Application.Resources>
 </Application>
