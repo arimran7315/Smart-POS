@@ -5,9 +5,19 @@ namespace SmartPOS.App.Services;
 
 public static class AppTheme
 {
+    /// <summary>True when the dark palette is currently applied. Updated by <see cref="Apply"/>.</summary>
+    public static bool IsDark { get; private set; }
+
+    /// <summary>The canonical name ("Light" or "Dark") of the active palette.</summary>
+    public static string CurrentTheme => IsDark ? "Dark" : "Light";
+
+    /// <summary>Raised after a new palette is applied so owner-drawn visuals (charts) can repaint.</summary>
+    public static event Action? ThemeChanged;
+
     public static void Apply(Application application, string? theme)
     {
         var dark = string.Equals(theme?.Trim(), "Dark", StringComparison.OrdinalIgnoreCase);
+        IsDark = dark;
         var palette = dark
             ? new Dictionary<string, uint>
             {
@@ -37,5 +47,7 @@ public static class AppTheme
             brush.Freeze();
             application.Resources[key] = brush;
         }
+
+        ThemeChanged?.Invoke();
     }
 }

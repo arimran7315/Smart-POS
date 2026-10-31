@@ -57,6 +57,10 @@ public partial class DashboardWindow : Window
         RecentSalesCard.Visibility = Permissions.Has(_user.Role, "Sales.View") ? Visibility.Visible : Visibility.Collapsed;
         RecentPurchasesCard.Visibility = Permissions.Has(_user.Role, "Purchases.Manage") || Permissions.Has(_user.Role, "Purchases.Return") ? Visibility.Visible : Visibility.Collapsed;
         ProfitChartCard.Visibility = canViewProfit ? Visibility.Visible : Visibility.Collapsed;
+        SalesTrendChart.ColumnClicked += (_, _) => Sales_Click(this, new RoutedEventArgs());
+        PurchasesTrendChart.ColumnClicked += (_, _) => Purchase_Click(this, new RoutedEventArgs());
+        ProfitTrendChart.ColumnClicked += (_, _) => Reports_Click(this, new RoutedEventArgs());
+        UpdateThemeToggleVisual();
         ApplyResponsiveLayout();
         Loaded += async (_, _) => await _viewModel.RefreshAsync(canViewProfit);
     }
@@ -96,6 +100,41 @@ public partial class DashboardWindow : Window
             Grid.SetRow(visibleCards[index], index / columns);
         }
     }
+    // Drill-down: clicking a stat card opens the window that details it.
+    private void Card_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement fe) return;
+        var args = new RoutedEventArgs();
+        switch (fe.Tag as string)
+        {
+            case "sales": Sales_Click(this, args); break;
+            case "purchases": Purchase_Click(this, args); break;
+            case "profit": Reports_Click(this, args); break;
+            case "products" or "lowstock": Products_Click(this, args); break;
+            case "expenses" or "customers" or "suppliers": Operations_Click(this, args); break;
+        }
+    }
+
+    private async void ThemeToggle_Click(object sender, RoutedEventArgs e)
+    {
+        var newTheme = AppTheme.IsDark ? "Light" : "Dark";
+        AppTheme.Apply(Application.Current, newTheme);
+        UpdateThemeToggleVisual();
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<SettingsService>().SetAsync("Theme", newTheme, _user.Id);
+        }
+        catch { /* Theme is applied for this session; persisting it needs the Settings.Manage permission. */ }
+    }
+
+    private void UpdateThemeToggleVisual()
+    {
+        // Offer the opposite of the active theme (sun to go light, moon to go dark).
+        ThemeToggleIcon.Text = AppTheme.IsDark ? "" : "";
+        ThemeToggleLabel.Text = AppTheme.IsDark ? "Light mode" : "Dark mode";
+    }
+
     private void SidebarToggle_Click(object sender, RoutedEventArgs e)
     {
         _sidebarManuallySet = true;

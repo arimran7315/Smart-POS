@@ -5,8 +5,9 @@
     <TextBlock DockPanel.Dock="Bottom" Text="{Binding Status}" Foreground="{DynamicResource SecondaryText}" Margin="4,12" TextWrapping="Wrap"/>
     <Grid>
       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="1.1*"/></Grid.ColumnDefinitions>
-      <!-- Left: open / close controls + X/Z summary -->
-      <StackPanel Grid.Column="0" Margin="0,0,12,0">
+      <!-- Left: open / close controls + X/Z summary (scrolls so the summary never clips on short windows) -->
+      <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,12,0" Padding="0,0,6,0">
+      <StackPanel>
         <Border Background="{DynamicResource CardBackground}" CornerRadius="10" Padding="16" Visibility="{Binding NoOpenShift, Converter={StaticResource BoolVisibility}}">
           <StackPanel>
             <TextBlock Text="Open a shift" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
@@ -55,6 +56,7 @@
           </StackPanel>
         </Border>
       </StackPanel>
+      </ScrollViewer>
       <!-- Right: shift history -->
       <DockPanel Grid.Column="1">
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">

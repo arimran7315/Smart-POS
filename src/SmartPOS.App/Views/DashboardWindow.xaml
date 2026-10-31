@@ -51,6 +51,9 @@
        <TextBlock x:Name="UserInfo" Tag="label" TextWrapping="Wrap" MaxWidth="128" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryText}" Margin="8,0,0,0"/>
       </StackPanel>
      </Border>
+     <Button x:Name="ThemeToggleButton" Style="{StaticResource NavButton}" Click="ThemeToggle_Click" ToolTip="Switch light / dark theme">
+      <StackPanel Orientation="Horizontal"><TextBlock x:Name="ThemeToggleIcon" Text="&#xE708;" FontFamily="Segoe MDL2 Assets" FontSize="15" Width="24" TextAlignment="Center" VerticalAlignment="Center"/><TextBlock x:Name="ThemeToggleLabel" Text="Dark mode" Tag="label" Margin="8,0,0,0" VerticalAlignment="Center"/></StackPanel>
+     </Button>
      <Button Style="{StaticResource NavButton}" Click="Refresh_Click" ToolTip="Refresh dashboard">
       <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="15" Width="24" TextAlignment="Center" VerticalAlignment="Center"/><TextBlock Text="Refresh" Tag="label" Margin="8,0,0,0" VerticalAlignment="Center"/></StackPanel>
      </Button>
@@ -104,7 +107,7 @@
     <TextBlock Grid.Row="1" Text="TODAY" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource MutedText}" Margin="6,0,0,10"/>
 
     <Grid x:Name="MetricsGrid" Grid.Row="2">
-     <Border x:Name="SalesMetricCard" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="18">
+     <Border x:Name="SalesMetricCard" Cursor="Hand" Tag="sales" MouseLeftButtonUp="Card_Click" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="18">
       <StackPanel>
        <DockPanel>
         <Border DockPanel.Dock="Right" Width="38" Height="38" CornerRadius="10" Background="{DynamicResource AccentSoft}" VerticalAlignment="Top"><TextBlock Text="&#xE719;" FontFamily="Segoe MDL2 Assets" FontSize="17" Foreground="{DynamicResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
@@ -113,7 +116,7 @@
        <TextBlock Text="{Binding Sales}" FontSize="28" FontWeight="Bold" Margin="0,10,0,4"/><TextBlock Text="Today's visible sales" FontSize="12" Foreground="{DynamicResource MutedText}"/><ctrl:Sparkline Height="32" Margin="0,10,0,0" ItemsSource="{Binding SalesTrend}" Stroke="{DynamicResource Accent}"/>
       </StackPanel>
      </Border>
-     <Border x:Name="PurchasesMetricCard" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="18">
+     <Border x:Name="PurchasesMetricCard" Cursor="Hand" Tag="purchases" MouseLeftButtonUp="Card_Click" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="18">
       <StackPanel>
        <DockPanel>
         <Border DockPanel.Dock="Right" Width="38" Height="38" CornerRadius="10" Background="{DynamicResource SuccessSoft}" VerticalAlignment="Top"><TextBlock Text="&#xE7B8;" FontFamily="Segoe MDL2 Assets" FontSize="17" Foreground="{DynamicResource Success}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
@@ -122,7 +125,7 @@
        <TextBlock Text="{Binding Purchases}" FontSize="28" FontWeight="Bold" Margin="0,10,0,4"/><TextBlock Text="Today's received purchases" FontSize="12" Foreground="{DynamicResource MutedText}"/><ctrl:Sparkline Height="32" Margin="0,10,0,0" ItemsSource="{Binding PurchasesTrend}" Stroke="{DynamicResource SuccessMuted}"/>
       </StackPanel>
      </Border>
-     <Border x:Name="ProfitMetricCard" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="18">
+     <Border x:Name="ProfitMetricCard" Cursor="Hand" Tag="profit" MouseLeftButtonUp="Card_Click" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="18">
       <StackPanel>
        <DockPanel>
         <Border DockPanel.Dock="Right" Width="38" Height="38" CornerRadius="10" Background="{DynamicResource AccentSoft}" VerticalAlignment="Top"><TextBlock Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets" FontSize="17" Foreground="{DynamicResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
@@ -131,7 +134,7 @@
        <TextBlock Text="{Binding Profit}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource Accent}" Margin="0,10,0,4"/><TextBlock Text="Net of tax, discounts, and recorded unit cost" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource MutedText}"/><ctrl:Sparkline Height="32" Margin="0,10,0,0" ItemsSource="{Binding ProfitTrend}" Stroke="{DynamicResource Accent}"/>
       </StackPanel>
      </Border>
-     <Border x:Name="ExpensesMetricCard" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="18">
+     <Border x:Name="ExpensesMetricCard" Cursor="Hand" Tag="expenses" MouseLeftButtonUp="Card_Click" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="18">
       <StackPanel>
        <DockPanel>
         <Border DockPanel.Dock="Right" Width="38" Height="38" CornerRadius="10" Background="{DynamicResource WarningSoft}" VerticalAlignment="Top"><TextBlock Text="&#xE1D3;" FontFamily="Segoe MDL2 Assets" FontSize="17" Foreground="{DynamicResource Warning}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
@@ -140,7 +143,7 @@
        <TextBlock Text="{Binding Expenses}" FontSize="28" FontWeight="Bold" Margin="0,10,0,4"/><TextBlock Text="Today's recorded expenses" FontSize="12" Foreground="{DynamicResource MutedText}"/>
       </StackPanel>
      </Border>
-     <Border x:Name="ProductsMetricCard" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="18">
+     <Border x:Name="ProductsMetricCard" Cursor="Hand" Tag="products" MouseLeftButtonUp="Card_Click" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="18">
       <StackPanel>
        <DockPanel>
         <Border DockPanel.Dock="Right" Width="38" Height="38" CornerRadius="10" Background="{DynamicResource AccentSoft}" VerticalAlignment="Top"><TextBlock Text="&#xE8EC;" FontFamily="Segoe MDL2 Assets" FontSize="17" Foreground="{DynamicResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
@@ -149,7 +152,7 @@
        <TextBlock Text="{Binding Products}" FontSize="28" FontWeight="Bold" Margin="0,10,0,4"/><TextBlock Text="In catalogue" FontSize="12" Foreground="{DynamicResource MutedText}"/>
       </StackPanel>
      </Border>
-     <Border x:Name="LowStockMetricCard" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="18">
+     <Border x:Name="LowStockMetricCard" Cursor="Hand" Tag="lowstock" MouseLeftButtonUp="Card_Click" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="18">
       <StackPanel>
        <DockPanel>
         <Border DockPanel.Dock="Right" Width="38" Height="38" CornerRadius="10" Background="{DynamicResource WarningSoft}" VerticalAlignment="Top"><TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="17" Foreground="{DynamicResource Warning}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
@@ -158,7 +161,7 @@
        <TextBlock Text="{Binding LowStock}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource Warning}" Margin="0,10,0,4"/><TextBlock Text="At or below product minimum" FontSize="12" Foreground="{DynamicResource MutedText}"/>
       </StackPanel>
      </Border>
-     <Border x:Name="CustomersMetricCard" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="18">
+     <Border x:Name="CustomersMetricCard" Cursor="Hand" Tag="customers" MouseLeftButtonUp="Card_Click" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="18">
       <StackPanel>
        <DockPanel>
         <Border DockPanel.Dock="Right" Width="38" Height="38" CornerRadius="10" Background="{DynamicResource AccentSoft}" VerticalAlignment="Top"><TextBlock Text="&#xE716;" FontFamily="Segoe MDL2 Assets" FontSize="17" Foreground="{DynamicResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
@@ -167,7 +170,7 @@
        <TextBlock Text="{Binding Customers}" FontSize="28" FontWeight="Bold" Margin="0,10,0,4"/><TextBlock Text="Active records" FontSize="12" Foreground="{DynamicResource MutedText}"/>
       </StackPanel>
      </Border>
-     <Border x:Name="SuppliersMetricCard" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="18">
+     <Border x:Name="SuppliersMetricCard" Cursor="Hand" Tag="suppliers" MouseLeftButtonUp="Card_Click" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="18">
       <StackPanel>
        <DockPanel>
         <Border DockPanel.Dock="Right" Width="38" Height="38" CornerRadius="10" Background="{DynamicResource SuccessSoft}" VerticalAlignment="Top"><TextBlock Text="&#xE774;" FontFamily="Segoe MDL2 Assets" FontSize="17" Foreground="{DynamicResource Success}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
@@ -179,9 +182,9 @@
     </Grid>
 
     <Grid x:Name="ChartsGrid" Grid.Row="3" Margin="0,10,0,0">
-     <Border x:Name="SalesChartCard" Grid.Column="0" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="16"><StackPanel><TextBlock Text="Sales · last 7 days" FontWeight="SemiBold" Margin="0,0,0,10"/><ctrl:ColumnChart Height="150" ItemsSource="{Binding SalesTrend}" Fill="{DynamicResource Accent}" NegativeFill="{DynamicResource Warning}"/></StackPanel></Border>
-     <Border x:Name="PurchasesChartCard" Grid.Column="1" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="16"><StackPanel><TextBlock Text="Purchases · last 7 days" FontWeight="SemiBold" Margin="0,0,0,10"/><ctrl:ColumnChart Height="150" ItemsSource="{Binding PurchasesTrend}" Fill="{DynamicResource SuccessMuted}"/></StackPanel></Border>
-     <Border x:Name="ProfitChartCard" Grid.Column="2" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="16"><StackPanel><TextBlock Text="Profit · last 7 days" FontWeight="SemiBold" Margin="0,0,0,10"/><ctrl:ColumnChart Height="150" ItemsSource="{Binding ProfitTrend}" Fill="{DynamicResource Accent}" NegativeFill="{DynamicResource Warning}"/></StackPanel></Border>
+     <Border x:Name="SalesChartCard" Grid.Column="0" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="16"><StackPanel><TextBlock Text="Sales · last 7 days" FontWeight="SemiBold" Margin="0,0,0,10"/><ctrl:ColumnChart x:Name="SalesTrendChart" IsInteractive="True" Height="150" ItemsSource="{Binding SalesTrend}" Fill="{DynamicResource Accent}" NegativeFill="{DynamicResource Warning}"/></StackPanel></Border>
+     <Border x:Name="PurchasesChartCard" Grid.Column="1" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="16"><StackPanel><TextBlock Text="Purchases · last 7 days" FontWeight="SemiBold" Margin="0,0,0,10"/><ctrl:ColumnChart x:Name="PurchasesTrendChart" IsInteractive="True" Height="150" ItemsSource="{Binding PurchasesTrend}" Fill="{DynamicResource SuccessMuted}"/></StackPanel></Border>
+     <Border x:Name="ProfitChartCard" Grid.Column="2" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="14" Margin="6" Padding="16"><StackPanel><TextBlock Text="Profit · last 7 days" FontWeight="SemiBold" Margin="0,0,0,10"/><ctrl:ColumnChart x:Name="ProfitTrendChart" IsInteractive="True" Height="150" ItemsSource="{Binding ProfitTrend}" Fill="{DynamicResource Accent}" NegativeFill="{DynamicResource Warning}"/></StackPanel></Border>
     </Grid>
 
     <Grid x:Name="RecentActivityGrid" Grid.Row="4" Margin="0,4,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
