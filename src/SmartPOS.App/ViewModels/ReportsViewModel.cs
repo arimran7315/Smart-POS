@@ -131,4 +131,10 @@ public sealed class ReportsViewModel : INotifyPropertyChanged
     }
 }
 
-public sealed record ReportBar(string Label, double Value, double Maximum, string DisplayValue);
+public sealed record ReportBar(string Label, double Value, double Maximum, string DisplayValue) : IChartColumn
+{
+    double IChartColumn.Magnitude => Value;
+    double IChartColumn.Scale => Maximum;
+    bool IChartColumn.IsNegative => false;
+    string IChartColumn.Display => DisplayValue;
+}

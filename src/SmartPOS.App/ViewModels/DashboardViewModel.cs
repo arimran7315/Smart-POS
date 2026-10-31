@@ -8,7 +8,22 @@ using SmartPOS.Infrastructure.Services;
 
 namespace SmartPOS.App.ViewModels;
 
-public sealed record DashboardChartPoint(string Label, string Amount, double Fraction, bool IsNegative);
+/// <summary>A single column/point a chart control can render, independent of the source report type.</summary>
+public interface IChartColumn
+{
+    string Label { get; }
+    double Magnitude { get; }
+    double Scale { get; }
+    bool IsNegative { get; }
+    string Display { get; }
+}
+
+public sealed record DashboardChartPoint(string Label, string Amount, double Fraction, bool IsNegative) : IChartColumn
+{
+    double IChartColumn.Magnitude => Fraction;
+    double IChartColumn.Scale => 1;
+    string IChartColumn.Display => Amount;
+}
 
 public sealed class DashboardViewModel(DashboardService dashboard, int userId, string role) : INotifyPropertyChanged
 {
