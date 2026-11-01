@@ -1,5 +1,49 @@
 <Window x:Class="SmartPOS.App.Views.ReportsWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ctrl="clr-namespace:SmartPOS.App.Controls" Title="Reports" Width="1080" Height="720" MinWidth="850" MinHeight="560" WindowStartupLocation="CenterOwner" Background="{DynamicResource WindowBackground}">
- <Window.Resources><BooleanToVisibilityConverter x:Key="BoolVisibility"/></Window.Resources>
+ <Window.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolVisibility"/>
+    <!-- Report tabs rendered as a scrollable vertical left-rail (replaces the wrapped top tab strip) -->
+    <Style TargetType="TabItem">
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryText}"/>
+      <Setter Property="FontSize" Value="13.5"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TabItem">
+            <Grid>
+              <Border x:Name="bg" Background="Transparent" CornerRadius="8" Margin="6,1" Padding="12,9" SnapsToDevicePixels="True">
+                <ContentPresenter ContentSource="Header" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+              </Border>
+              <Border x:Name="bar" Width="3" HorizontalAlignment="Left" Margin="0,8" CornerRadius="2" Background="{DynamicResource Accent}" Visibility="Collapsed"/>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bg" Property="Background" Value="{DynamicResource NavHover}"/><Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/></Trigger>
+              <Trigger Property="IsSelected" Value="True"><Setter TargetName="bg" Property="Background" Value="{DynamicResource NavActive}"/><Setter TargetName="bar" Property="Visibility" Value="Visible"/><Setter Property="Foreground" Value="{DynamicResource Accent}"/><Setter Property="FontWeight" Value="SemiBold"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style TargetType="TabControl">
+      <Setter Property="Background" Value="{DynamicResource WindowBackground}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TabControl">
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="208"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+              <Border Grid.Column="0" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="12" Margin="0,0,14,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="2,8">
+                  <StackPanel IsItemsHost="True"/>
+                </ScrollViewer>
+              </Border>
+              <Border Grid.Column="1" Background="{DynamicResource WindowBackground}">
+                <ContentPresenter ContentSource="SelectedContent"/>
+              </Border>
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Window.Resources>
  <DockPanel Margin="18"><WrapPanel DockPanel.Dock="Top" Margin="0,0,0,14"><TextBlock Text="Reports" FontSize="26" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,25,0"/><TextBlock Text="From" VerticalAlignment="Center"/><TextBox Width="125" Text="{Binding From, UpdateSourceTrigger=PropertyChanged}"/><TextBlock Text="Through" VerticalAlignment="Center"/><TextBox Width="125" Text="{Binding Through, UpdateSourceTrigger=PropertyChanged}"/><Button Content="Run report" Command="{Binding RefreshCommand}" Background="{DynamicResource Accent}" Foreground="White"/><ProgressBar IsIndeterminate="True" Width="90" Height="8" Margin="8,0" VerticalAlignment="Center" Visibility="{Binding RefreshCommand.IsRunning, Converter={StaticResource BoolVisibility}}"/><Button Content="Print preview" Click="PrintPreview_Click" Margin="8,0,0,0"/><Button Content="Export active report" Click="Export_Click" Margin="8,0,0,0"/></WrapPanel>
   <TextBlock DockPanel.Dock="Bottom" Text="{Binding Status}" Foreground="{DynamicResource SecondaryText}" Margin="4,12"/>
   <TabControl x:Name="ReportTabs">
